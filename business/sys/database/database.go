@@ -47,7 +47,8 @@ func Open(cfg Config) (*sqlx.DB, error) {
 	q := make(url.Values)
 	q.Set("sslmode", sslMode)
 	q.Set("timezone", "utc")
-
+	// 这里可以对照着David Gourley, Brian Totty, Marjorie Sayer, Anshu Aggarwal, Sailu Reddy - HTTP_ The Definitive Guide-O'Reilly Media (2002)
+	// 这本书看
 	u := url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(cfg.User, cfg.Password),
