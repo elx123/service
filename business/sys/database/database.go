@@ -171,6 +171,7 @@ func NamedQueryStruct(ctx context.Context, log *zap.SugaredLogger, db *sqlx.DB, 
 }
 
 // queryString provides a pretty print version of the query and parameters.
+// 这里可以理解为将name parameter转换为bindvar
 func queryString(query string, args ...interface{}) string {
 	query, params, err := sqlx.Named(query, args)
 	if err != nil {
