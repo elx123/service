@@ -49,7 +49,7 @@ func Check(val interface{}) error {
 		if !ok {
 			return err
 		}
-
+		// 自己封装一个FieldError，利用Translate翻译err
 		var fields FieldErrors
 		for _, verror := range verrors {
 			field := FieldError{
