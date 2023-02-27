@@ -72,6 +72,7 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 	handler = wrapMiddleware(a.mw, handler)
 
 	// The function to execute for each request.
+	// 为什么是这个类型的函数，因为底层servehttp(w http.ResponseWriter, r *http.Request)
 	h := func(w http.ResponseWriter, r *http.Request) {
 
 		// Pull the context from the request and

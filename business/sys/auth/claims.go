@@ -13,6 +13,8 @@ const (
 	RoleUser  = "USER"
 )
 
+//这里的claim 肯定是要和http request 过来的claim作比较
+
 // Claims represents the authorization claims transmitted via a JWT.
 type Claims struct {
 	jwt.StandardClaims
