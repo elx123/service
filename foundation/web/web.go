@@ -73,6 +73,7 @@ func (a *App) Handle(method string, group string, path string, handler Handler, 
 
 	// The function to execute for each request.
 	// 为什么是这个类型的函数，因为底层servehttp(w http.ResponseWriter, r *http.Request)
+	//可以理解为了一种约定，也因为这个http web服务器编写
 	h := func(w http.ResponseWriter, r *http.Request) {
 
 		// Pull the context from the request and
