@@ -9,6 +9,7 @@ import (
 var ErrInvalidID = errors.New("ID is not in its proper form")
 
 // ErrorResponse is the form used for API responses from failures in the API.
+// 用来验证struct是否符合正则表达式
 type ErrorResponse struct {
 	Error  string `json:"error"`
 	Fields string `json:"fields,omitempty"`
@@ -16,6 +17,7 @@ type ErrorResponse struct {
 
 // RequestError is used to pass an error during the request through the
 // application with web specific context.
+// 这是http请求出错的时候
 type RequestError struct {
 	Err    error
 	Status int
@@ -41,6 +43,7 @@ type FieldError struct {
 }
 
 // FieldErrors represents a collection of field errors.
+// 这个错误应该是cfg 配置错误的时候
 type FieldErrors []FieldError
 
 // Error implments the error interface.
