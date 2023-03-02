@@ -43,7 +43,7 @@ type FieldError struct {
 }
 
 // FieldErrors represents a collection of field errors.
-// 这个错误应该是cfg 配置错误的时候
+// 配置文件出错的时候
 type FieldErrors []FieldError
 
 // Error implments the error interface.
