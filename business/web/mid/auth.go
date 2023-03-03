@@ -32,6 +32,7 @@ func Authenticate(a *auth.Auth) web.Middleware {
 			}
 
 			// Validate the token is signed by us.
+			// 这个error也具有特别意义，显示了Bearer Token Authorization验证失败后，返回http.StatusUnauthorized
 			claims, err := a.ValidateToken(parts[1])
 			if err != nil {
 				return validate.NewRequestError(err, http.StatusUnauthorized)

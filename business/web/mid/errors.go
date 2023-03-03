@@ -62,6 +62,7 @@ func Errors(log *zap.SugaredLogger) web.Middleware {
 
 				// If we receive the shutdown err we need to return it
 				// back to the base handler to shutdown the service.
+				// 这里提示了就算是handler返回了shutdownError error 也会在error mid中处理
 				if ok := web.IsShutdown(err); ok {
 					return err
 				}
