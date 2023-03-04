@@ -89,6 +89,7 @@ func (h Handlers) Create(ctx context.Context, w http.ResponseWriter, r *http.Req
 }
 
 // Update updates a user in the system.
+// 编写这个handler，有2个前置的条件，那就是已经执行过Authenticate，Authorize
 func (h Handlers) Update(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	v, err := web.GetValues(ctx)
 	if err != nil {
