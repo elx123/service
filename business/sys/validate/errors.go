@@ -9,7 +9,7 @@ import (
 var ErrInvalidID = errors.New("ID is not in its proper form")
 
 // ErrorResponse is the form used for API responses from failures in the API.
-// 用来验证struct是否符合正则表达式
+// 这是body中error的格式
 type ErrorResponse struct {
 	Error  string `json:"error"`
 	Fields string `json:"fields,omitempty"`

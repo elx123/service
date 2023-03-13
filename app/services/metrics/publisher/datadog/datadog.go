@@ -68,6 +68,7 @@ func (d *Datadog) Publish(data map[string]interface{}) {
 }
 
 // marshalDatadog converts the data map to datadog JSON document.
+// 针对输入的data，做一些处理和缩进，然后输出
 func marshalDatadog(log *log.Logger, data map[string]interface{}) ([]byte, error) {
 	/*
 		{ "series" : [

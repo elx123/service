@@ -9,6 +9,7 @@ import (
 
 // New constructs a Sugared Logger that writes to stdout and
 // provides human readable timestamps.
+// service用来筛选目标service，详见logfmt
 func New(service string) (*zap.SugaredLogger, error) {
 	config := zap.NewProductionConfig()
 	config.OutputPaths = []string{"stdout"}
