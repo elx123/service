@@ -131,7 +131,7 @@ func run(log *zap.SugaredLogger) error {
 
 	// =========================================================================
 	// Start expvar Service
-
+	
 	exp := expvarsrv.New(log, cfg.Expvar.Host, cfg.Expvar.Route, cfg.Expvar.ReadTimeout, cfg.Expvar.WriteTimeout, cfg.Expvar.IdleTimeout)
 	defer exp.Stop(cfg.Expvar.ShutdownTimeout)
 

@@ -32,7 +32,7 @@ func New(log *zap.SugaredLogger, host string, route string, readTimeout, writeTi
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 			IdleTimeout:  idleTimeout,
-			ErrorLog:     zap.NewStdLog(log.Desugar()),
+			ErrorLog:     zap.NewStdLog(log.Desugar()), //之所以这么处理是因为Server本身只接受log.Logger
 		},
 	}
 
@@ -90,7 +90,7 @@ func (exp *Expvar) handler(w http.ResponseWriter, r *http.Request, params map[st
 	if err := json.NewEncoder(w).Encode(data); err != nil {
 		exp.log.Errorw("expvar", "status", "encoding data", "ERROR", err)
 	}
-
+	// why not use exp.log ?
 	log.Printf("expvar : (%d) : %s %s -> %s",
 		http.StatusOK,
 		r.Method, r.URL.Path,
