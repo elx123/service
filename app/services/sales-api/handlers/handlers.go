@@ -12,6 +12,7 @@ import (
 	"github.com/ardanlabs/service/app/services/sales-api/handlers/debug/checkgrp"
 	v1ProductGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/productgrp"
 	v1UserGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/usergrp"
+	v1WsBroadcastGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/wsbroadcastgrp"
 	productCore "github.com/ardanlabs/service/business/core/product"
 	userCore "github.com/ardanlabs/service/business/core/user"
 	"github.com/ardanlabs/service/business/sys/auth"
@@ -135,4 +136,7 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	app.Handle(http.MethodPost, version, "/products", pgh.Create, mid.Authenticate(cfg.Auth))
 	app.Handle(http.MethodPut, version, "/products/:id", pgh.Update, mid.Authenticate(cfg.Auth))
 	app.Handle(http.MethodDelete, version, "/products/:id", pgh.Delete, mid.Authenticate(cfg.Auth))
+
+	wsh := v1WsBroadcastGrp.Handlers{}
+	app.Handle(http.MethodGet, version, "/ws", wsh.WsEndPoint, mid.Authenticate(cfg.Auth))
 }
