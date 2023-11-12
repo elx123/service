@@ -1,31 +1,29 @@
-package user
+package ws
 
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sort"
 
-	"github.com/jmoiron/sqlx"
-	"go.uber.org/zap"
+	"github.com/ardanlabs/service/business/ws/schema"
+	"github.com/gorilla/websocket"
 )
 
-// Core manages the set of API's for user access.
-type Core struct {
-	log *zap.SugaredLogger
+var Clients = make(map[schema.WebSocketConnection]string)
+var WsChan = make(chan schema.WsPayload)
+
+// upgradeConnection is the upgraded connection
+var UpgradeConnection = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
-// NewCore constructs a core for user api access.
-func NewCore(log *zap.SugaredLogger, db *sqlx.DB) Core {
-	return Core{
-		log: log,
-	}
-}
-
-// ListenToWsChannel listens to all channels and pushes data to broadcast function
 func ListenToWsChannel() {
-	var response WsJsonResponse
+	var response schema.WsJsonResponse
 	for {
-		e := <-wsChan
+		e := <-WsChan
 
 		switch e.Action {
 		case "broadcast":
@@ -67,7 +65,7 @@ func ListenToWsChannel() {
 			response.Message = fmt.Sprintf(`<small class="text-muted"><em>%s left</em></small>`, e.UserName)
 			broadcastToAll(response)
 
-			delete(clients, e.Conn)
+			delete(Clients, e.Conn)
 			userList := getUserNameList()
 			response.Action = "list_users"
 			response.ConnectedUsers = userList
@@ -86,7 +84,7 @@ func ListenToWsChannel() {
 
 func getUserNameList() []string {
 	var userNames []string
-	for _, value := range clients {
+	for _, value := range Clients {
 		if value != "" {
 			userNames = append(userNames, value)
 		}
@@ -96,10 +94,10 @@ func getUserNameList() []string {
 	return userNames
 }
 
-func addToUserList(conn WebSocketConnection, u string) []string {
+func addToUserList(conn schema.WebSocketConnection, u string) []string {
 	var userNames []string
-	clients[conn] = u
-	for _, value := range clients {
+	Clients[conn] = u
+	for _, value := range Clients {
 		if value != "" {
 			userNames = append(userNames, value)
 		}
@@ -112,8 +110,8 @@ func addToUserList(conn WebSocketConnection, u string) []string {
 // broadcastToAll sends a response to all connected clients, as JSON
 // note that the JSON will show up as part of the WS default json,
 // under "data"
-func broadcastToAll(response WsJsonResponse) {
-	for client := range clients {
+func broadcastToAll(response schema.WsJsonResponse) {
+	for client := range Clients {
 		// skip sender, if appropriate
 		if response.SkipSender && response.CurrentConn == client {
 			continue
@@ -124,7 +122,7 @@ func broadcastToAll(response WsJsonResponse) {
 		if err != nil {
 			log.Printf("Websocket error on %s: %s", response.Action, err)
 			_ = client.Close()
-			delete(clients, client)
+			delete(Clients, client)
 		}
 	}
 }
