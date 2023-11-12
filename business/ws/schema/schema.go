@@ -16,6 +16,8 @@ type WsJsonResponse struct {
 	SkipSender     bool                `json:"-"`
 	CurrentConn    WebSocketConnection `json:"-"`
 	ConnectedUsers []string            `json:"connected_users"`
+	IP             string              `json:"IP"`
+	Port           int                 `json:"Port"`
 }
 
 // WsPayload defines the data we receive from the client
