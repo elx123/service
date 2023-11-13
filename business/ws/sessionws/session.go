@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"github.com/ardanlabs/conf/v2"
 )
 
 type SessionWS struct {
@@ -35,7 +36,7 @@ type SessionWS struct {
 	pongWaitDuration   time.Duration
 	writeWaitDuration  time.Duration
 
-	sessionRegistry LocalSessionRegistry
+	sessionRegistry *LocalSessionRegistry
 	//statusRegistry  *StatusRegistry
 	//matchmaker      Matchmaker
 	//tracker         Tracker
@@ -43,15 +44,15 @@ type SessionWS struct {
 	//pipeline        *Pipeline
 	//runtime         *Runtime
 
-	stopped                bool
-	conn                   *websocket.Conn
-	receivedMessageCounter int
-	pingTimer              *time.Timer
-	pingTimerCAS           *atomic.Uint32
-	outgoingCh             chan []byte
+	stopped bool
+	conn    *websocket.Conn
+	//receivedMessageCounter int
+	pingTimer    *time.Timer
+	pingTimerCAS *atomic.Uint32
+	outgoingCh   chan []byte
 }
 
-func NewSessionWS(logger *zap.Logger, config Config, format SessionFormat, sessionID, userID uuid.UUID, username string, vars map[string]string, expiry int64, clientIP, clientPort, lang string, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, conn *websocket.Conn, sessionRegistry SessionRegistry, statusRegistry *StatusRegistry, matchmaker Matchmaker, tracker Tracker, metrics Metrics, pipeline *Pipeline, runtime *Runtime) Session {
+func NewSessionWS(logger *zap.Logger, format SessionFormat, sessionID, userID uuid.UUID, username string, vars map[string]string, expiry int64, clientIP, clientPort, lang string, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry) *SessionWS {
 	sessionLogger := logger.With(zap.String("uid", userID.String()), zap.String("sid", sessionID.String()))
 
 	sessionLogger.Info("New WebSocket session connected", zap.Uint8("format", uint8(format)))
@@ -63,11 +64,9 @@ func NewSessionWS(logger *zap.Logger, config Config, format SessionFormat, sessi
 		wsMessageType = websocket.BinaryMessage
 	}
 
-	return &sessionWS{
+	return &SessionWS{
 		logger:     sessionLogger,
-		config:     config,
 		id:         sessionID,
-		format:     format,
 		userID:     userID,
 		username:   atomic.NewString(username),
 		vars:       vars,
@@ -79,27 +78,25 @@ func NewSessionWS(logger *zap.Logger, config Config, format SessionFormat, sessi
 		ctx:         ctx,
 		ctxCancelFn: ctxCancelFn,
 
-		protojsonMarshaler:   protojsonMarshaler,
-		protojsonUnmarshaler: protojsonUnmarshaler,
-		wsMessageType:        wsMessageType,
-		pingPeriodDuration:   time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond,
-		pongWaitDuration:     time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
-		writeWaitDuration:    time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
+		wsMessageType:      wsMessageType,
+		pingPeriodDuration: time.Duration(asdfsfasdf) * time.Millisecond,
+		pongWaitDuration:   time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
+		writeWaitDuration:  time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
 
 		sessionRegistry: sessionRegistry,
-		statusRegistry:  statusRegistry,
-		matchmaker:      matchmaker,
-		tracker:         tracker,
-		metrics:         metrics,
-		pipeline:        pipeline,
-		runtime:         runtime,
+		//statusRegistry:  statusRegistry,
+		//matchmaker:      matchmaker,
+		//tracker:         tracker,
+		//metrics:         metrics,
+		//pipeline:        pipeline,
+		//runtime:         runtime,
 
-		stopped:                false,
-		conn:                   conn,
-		receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
-		pingTimer:              time.NewTimer(time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond),
-		pingTimerCAS:           atomic.NewUint32(1),
-		outgoingCh:             make(chan []byte, config.GetSocket().OutgoingQueueSize),
+		stopped: false,
+		conn:    conn,
+		//receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
+		pingTimer:    time.NewTimer() * time.Millisecond),
+		pingTimerCAS: atomic.NewUint32(1),
+		outgoingCh:   make(chan []byte, config.GetSocket().OutgoingQueueSize),
 	}
 }
 
@@ -199,4 +196,105 @@ func (s *SessionWS) Close() {
 	}
 
 	s.logger.Info("Closed client connection")
+}
+
+func (s *sessionWS) Consume() {
+	// Fire an event for session start.
+	if fn := s.runtime.EventSessionStart(); fn != nil {
+		fn(s.userID.String(), s.username.Load(), s.vars, s.expiry, s.id.String(), s.clientIP, s.clientPort, s.lang, time.Now().UTC().Unix())
+	}
+
+	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
+	if err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration)); err != nil {
+		s.logger.Warn("Failed to set initial read deadline", zap.Error(err))
+		s.Close("failed to set initial read deadline", runtime.PresenceReasonDisconnect)
+		return
+	}
+	// 这里我猜测，作为全双工协议，我们也需要设置对应的handler
+	s.conn.SetPongHandler(func(string) error {
+		// 在接受到pong的 message以后，重置ping pong定时器
+		s.maybeResetPingTimer()
+		return nil
+	})
+
+	// Start a routine to process outbound messages.
+	go s.processOutgoing()
+
+	var reason string
+	var data []byte
+
+IncomingLoop:
+	for {
+		messageType, data, err := s.conn.ReadMessage()
+		if err != nil {
+			// Ignore "normal" WebSocket errors.
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseNoStatusReceived) {
+				// Ignore underlying connection being shut down while read is waiting for data.
+				// 这里比较字符串 应该是历史遗留问题了
+				// https://github.com/golang/go/issues/4373
+				if e, ok := err.(*net.OpError); !ok || e.Err.Error() != "use of closed network connection" {
+					s.logger.Debug("Error reading message from client", zap.Error(err))
+					reason = err.Error()
+				}
+			}
+			break
+		}
+		if messageType != s.wsMessageType {
+			// Expected text but received binary, or expected binary but received text.
+			// Disconnect client if it attempts to use this kind of mixed protocol mode.
+			s.logger.Debug("Received unexpected WebSocket message type", zap.Int("expected", s.wsMessageType), zap.Int("actual", messageType))
+			reason = "received unexpected WebSocket message type"
+			break
+		}
+
+		s.receivedMessageCounter--
+		if s.receivedMessageCounter <= 0 {
+			s.receivedMessageCounter = s.config.GetSocket().PingBackoffThreshold
+			if !s.maybeResetPingTimer() {
+				// Problems resetting the ping timer indicate an error so we need to close the loop.
+				reason = "error updating ping timer"
+				break
+			}
+		}
+
+		request := &rtapi.Envelope{}
+		switch s.format {
+		case SessionFormatProtobuf:
+			err = proto.Unmarshal(data, request)
+		case SessionFormatJson:
+			fallthrough
+		default:
+			err = s.protojsonUnmarshaler.Unmarshal(data, request)
+		}
+		if err != nil {
+			// If the payload is malformed the client is incompatible or misbehaving, either way disconnect it now.
+			s.logger.Warn("Received malformed payload", zap.Binary("data", data))
+			reason = "received malformed payload"
+			break
+		}
+
+		switch request.Cid {
+		case "":
+			if !s.pipeline.ProcessRequest(s.logger, s, request) {
+				reason = "error processing message"
+				break IncomingLoop
+			}
+		default:
+			requestLogger := s.logger.With(zap.String("cid", request.Cid))
+			if !s.pipeline.ProcessRequest(requestLogger, s, request) {
+				reason = "error processing message"
+				break IncomingLoop
+			}
+		}
+
+		// Update incoming message metrics.
+		s.metrics.Message(int64(len(data)), false)
+	}
+
+	if reason != "" {
+		// Update incoming message metrics.
+		s.metrics.Message(int64(len(data)), true)
+	}
+
+	s.Close(reason, runtime.PresenceReasonDisconnect)
 }

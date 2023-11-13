@@ -13,10 +13,12 @@ import (
 	v1ProductGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/productgrp"
 	v1UserGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/usergrp"
 	v1WsBroadcastGrp "github.com/ardanlabs/service/app/services/sales-api/handlers/v1/wsbroadcastgrp"
+	"github.com/ardanlabs/service/business/config"
 	productCore "github.com/ardanlabs/service/business/core/product"
 	userCore "github.com/ardanlabs/service/business/core/user"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/ardanlabs/service/business/web/mid"
+	"github.com/ardanlabs/service/business/ws/sessionws"
 	"github.com/ardanlabs/service/foundation/web"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -73,10 +75,12 @@ func DebugMux(build string, log *zap.SugaredLogger, db *sqlx.DB) http.Handler {
 
 // APIMuxConfig contains all the mandatory systems required by handlers.
 type APIMuxConfig struct {
-	Shutdown chan os.Signal
-	Log      *zap.SugaredLogger
-	Auth     *auth.Auth
-	DB       *sqlx.DB
+	Shutdown        chan os.Signal
+	Log             *zap.SugaredLogger
+	Auth            *auth.Auth
+	DB              *sqlx.DB
+	SessionRegistry *sessionws.LocalSessionRegistry
+	Config          *config.Config
 }
 
 // APIMux constructs an http.Handler with all application routes defined.
@@ -137,6 +141,9 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	app.Handle(http.MethodPut, version, "/products/:id", pgh.Update, mid.Authenticate(cfg.Auth))
 	app.Handle(http.MethodDelete, version, "/products/:id", pgh.Delete, mid.Authenticate(cfg.Auth))
 
-	wsh := v1WsBroadcastGrp.Handlers{}
-	app.Handle(http.MethodGet, version, "/ws", wsh.WsEndPoint, mid.Authenticate(cfg.Auth))
+	wsh := v1WsBroadcastGrp.Handlers{
+		SessionRegistry: cfg.SessionRegistry,
+		Config:          cfg.Config,
+	}
+	app.Handle(http.MethodGet, version, "/ws", wsh.NewSocketWsAcceptor(), mid.Authenticate(cfg.Auth))
 }

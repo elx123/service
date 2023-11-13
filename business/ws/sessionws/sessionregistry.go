@@ -7,6 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type SessionFormat uint8
+
+const (
+	SessionFormatJson SessionFormat = iota
+	SessionFormatProtobuf
+)
+
 type LocalSessionRegistry struct {
 	sessions     *lockfreemap.MapOf[uuid.UUID, SessionWS]
 	sessionCount *atomic.Int32
@@ -15,7 +22,7 @@ type LocalSessionRegistry struct {
 func NewLocalSessionRegistry() *LocalSessionRegistry {
 	return &LocalSessionRegistry{
 
-		sessions:     &lockfreemap.MapOf[uuid.UUID, Session]{},
+		sessions:     &lockfreemap.MapOf[uuid.UUID, SessionWS]{},
 		sessionCount: atomic.NewInt32(0),
 	}
 }
