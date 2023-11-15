@@ -8,6 +8,7 @@ import (
 
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
 // Success and failure markers.
@@ -36,13 +37,15 @@ func TestAuth(t *testing.T) {
 			t.Logf("\t%s\tTest %d:\tShould be able to create an authenticator.", success, testID)
 
 			claims := auth.Claims{
-				StandardClaims: jwt.StandardClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "service project",
 					Subject:   "5cf37266-3473-4006-984f-9325122678b7",
-					ExpiresAt: time.Now().Add(time.Hour).Unix(),
-					IssuedAt:  time.Now().UTC().Unix(),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
-				Roles: []string{auth.RoleAdmin},
+				Roles:    []string{auth.RoleAdmin},
+				UserId:   uuid.NewString(),
+				Username: "test",
 			}
 
 			token, err := a.GenerateToken(claims)
@@ -55,6 +58,7 @@ func TestAuth(t *testing.T) {
 			if err != nil {
 				t.Fatalf("\t%s\tTest %d:\tShould be able to parse the claims: %v", failed, testID, err)
 			}
+			t.Log(token)
 			t.Logf("\t%s\tTest %d:\tShould be able to parse the claims.", success, testID)
 
 			if exp, got := len(claims.Roles), len(parsedClaims.Roles); exp != got {

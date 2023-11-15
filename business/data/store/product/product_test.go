@@ -35,11 +35,11 @@ func TestProduct(t *testing.T) {
 			now := time.Date(2019, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 			claims := auth.Claims{
-				StandardClaims: jwt.StandardClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "service project",
 					Subject:   "5cf37266-3473-4006-984f-9325122678b7",
-					ExpiresAt: time.Now().Add(time.Hour).Unix(),
-					IssuedAt:  time.Now().UTC().Unix(),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
 				Roles: []string{auth.RoleAdmin, auth.RoleUser},
 			}

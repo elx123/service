@@ -283,11 +283,11 @@ func (s Store) Authenticate(ctx context.Context, now time.Time, email, password 
 	// If we are this far the request is valid. Create some claims for the user
 	// and generate their token.
 	claims := auth.Claims{
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "service project",
 			Subject:   usr.ID,
-			ExpiresAt: time.Now().Add(time.Hour).Unix(),
-			IssuedAt:  time.Now().UTC().Unix(),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		},
 		Roles: usr.Roles,
 	}

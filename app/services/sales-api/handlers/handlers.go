@@ -144,6 +144,7 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	wsh := v1WsBroadcastGrp.Handlers{
 		SessionRegistry: cfg.SessionRegistry,
 		Config:          cfg.Config,
+		Auth:            cfg.Auth,
 	}
-	app.Handle(http.MethodGet, version, "/ws", wsh.NewSocketWsAcceptor(), mid.Authenticate(cfg.Auth))
+	app.Handle(http.MethodGet, version, "/ws", wsh.NewSocketWsAcceptor, mid.Authenticate(cfg.Auth))
 }

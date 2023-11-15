@@ -50,11 +50,11 @@ func TestUser(t *testing.T) {
 			t.Logf("\t%s\tTest %d:\tShould be able to create user.", tests.Success, testID)
 
 			claims := auth.Claims{
-				StandardClaims: jwt.StandardClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "service project",
 					Subject:   usr.ID,
-					ExpiresAt: time.Now().Add(time.Hour).Unix(),
-					IssuedAt:  time.Now().UTC().Unix(),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
 				Roles: []string{auth.RoleUser},
 			}
@@ -76,10 +76,10 @@ func TestUser(t *testing.T) {
 			}
 
 			claims = auth.Claims{
-				StandardClaims: jwt.StandardClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "service project",
-					ExpiresAt: time.Now().Add(time.Hour).Unix(),
-					IssuedAt:  time.Now().UTC().Unix(),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
 				Roles: []string{auth.RoleAdmin},
 			}
@@ -211,11 +211,11 @@ func TestAuthenticate(t *testing.T) {
 
 			want := auth.Claims{
 				Roles: usr.Roles,
-				StandardClaims: jwt.StandardClaims{
+				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "service project",
 					Subject:   usr.ID,
-					ExpiresAt: time.Now().Add(time.Hour).Unix(),
-					IssuedAt:  time.Now().UTC().Unix(),
+					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+					IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 				},
 			}
 

@@ -2,29 +2,37 @@ package sessionws
 
 import (
 	"context"
+	"net"
 	"sync"
 	"time"
 
+	"github.com/ardanlabs/service/business/config"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"github.com/ardanlabs/conf/v2"
+)
+
+type SessionFormat uint8
+
+const (
+	SessionFormatJson SessionFormat = iota
+	SessionFormatProtobuf
 )
 
 type SessionWS struct {
 	sync.Mutex
 	logger *zap.Logger
-	//config     Config
-	id uuid.UUID
+	config config.Config
+	id     uuid.UUID
 	//format     SessionFormat
-	userID     uuid.UUID
-	username   *atomic.String
-	vars       map[string]string
-	expiry     int64
-	clientIP   string
-	clientPort string
-	lang       string
+	userID   uuid.UUID
+	username *atomic.String
+	//vars       map[string]string
+	expiry int64
+	//clientIP   string
+	//clientPort string
+	lang string
 
 	ctx         context.Context
 	ctxCancelFn context.CancelFunc
@@ -52,7 +60,7 @@ type SessionWS struct {
 	outgoingCh   chan []byte
 }
 
-func NewSessionWS(logger *zap.Logger, format SessionFormat, sessionID, userID uuid.UUID, username string, vars map[string]string, expiry int64, clientIP, clientPort, lang string, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry) *SessionWS {
+func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry) *SessionWS {
 	sessionLogger := logger.With(zap.String("uid", userID.String()), zap.String("sid", sessionID.String()))
 
 	sessionLogger.Info("New WebSocket session connected", zap.Uint8("format", uint8(format)))
@@ -65,21 +73,17 @@ func NewSessionWS(logger *zap.Logger, format SessionFormat, sessionID, userID uu
 	}
 
 	return &SessionWS{
-		logger:     sessionLogger,
-		id:         sessionID,
-		userID:     userID,
-		username:   atomic.NewString(username),
-		vars:       vars,
-		expiry:     expiry,
-		clientIP:   clientIP,
-		clientPort: clientPort,
-		lang:       lang,
+		logger:   sessionLogger,
+		id:       sessionID,
+		userID:   userID,
+		username: atomic.NewString(username),
+		expiry:   expiry,
 
 		ctx:         ctx,
 		ctxCancelFn: ctxCancelFn,
 
 		wsMessageType:      wsMessageType,
-		pingPeriodDuration: time.Duration(asdfsfasdf) * time.Millisecond,
+		pingPeriodDuration: time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond,
 		pongWaitDuration:   time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
 		writeWaitDuration:  time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
 
@@ -94,10 +98,14 @@ func NewSessionWS(logger *zap.Logger, format SessionFormat, sessionID, userID uu
 		stopped: false,
 		conn:    conn,
 		//receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
-		pingTimer:    time.NewTimer() * time.Millisecond),
+		pingTimer:    time.NewTimer(time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond),
 		pingTimerCAS: atomic.NewUint32(1),
 		outgoingCh:   make(chan []byte, config.GetSocket().OutgoingQueueSize),
 	}
+}
+
+func (s *SessionWS) ID() uuid.UUID {
+	return s.id
 }
 
 func (s *SessionWS) processOutgoing() {
@@ -198,11 +206,7 @@ func (s *SessionWS) Close() {
 	s.logger.Info("Closed client connection")
 }
 
-func (s *sessionWS) Consume() {
-	// Fire an event for session start.
-	if fn := s.runtime.EventSessionStart(); fn != nil {
-		fn(s.userID.String(), s.username.Load(), s.vars, s.expiry, s.id.String(), s.clientIP, s.clientPort, s.lang, time.Now().UTC().Unix())
-	}
+func (s *SessionWS) Consume() {
 
 	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
 	if err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration)); err != nil {

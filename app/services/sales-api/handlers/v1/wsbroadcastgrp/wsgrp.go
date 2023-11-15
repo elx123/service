@@ -11,14 +11,19 @@ import (
 	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/business/ws/schema"
 	"github.com/ardanlabs/service/business/ws/sessionws"
+	"github.com/ardanlabs/service/business/ws/sessionregistry"
+	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
+
+
 type Handlers struct {
 	SessionRegistry *sessionws.LocalSessionRegistry
 	Config          *config.Config
+	Auth            *auth.Auth
 }
 
 func (h Handlers) WsEndPoint(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -70,10 +75,9 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 		return
 	}
 
-	userID, username, vars, expiry, _, ok := parseToken([]byte(config.GetSession().EncryptionKey), token)
-	if !ok || !sessionCache.IsValidSession(userID, expiry, token) {
-		http.Error(w, "Missing or invalid token", 401)
-		return
+	claim,err := auth.GetClaims(ctx)
+	if err!= nil{
+		return fmt.Errorf("err: %w", err)
 	}
 
 	// Upgrade to WebSocket.
@@ -86,13 +90,14 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 
 	//clientIP, clientPort := extractClientAddressFromRequest(logger, r)
 	//status, _ := strconv.ParseBool(r.URL.Query().Get("status"))
-	sessionID := uid.NewString()
+	sessionID := uuid.NewString()
 
 	// Wrap the connection for application handling.
-	session := NewSessionWS(logger, config, format, sessionID, userID, username, vars, expiry, clientIP, clientPort, lang, protojsonMarshaler, protojsonUnmarshaler, conn, sessionRegistry, statusRegistry, matchmaker, tracker, metrics, pipeline, runtime)
+	session := sessionws.NewSessionWS(logger, h.Config, format, sessionID, claim.UserId, claim.Username, claim.ExpiresAt,conn,h.SessionRegistry)
 
 	// Add to the session registry.
-	sessionRegistry.Add(session)
+	h.SessionRegistry.Add(session)
+
 
 	// Register initial status tracking and presence(s) for this session.
 	statusRegistry.Follow(sessionID, map[uuid.UUID]struct{}{userID: {}})
