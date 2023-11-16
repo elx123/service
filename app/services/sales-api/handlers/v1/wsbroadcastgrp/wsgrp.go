@@ -9,9 +9,7 @@ import (
 
 	"github.com/ardanlabs/service/business/config"
 	"github.com/ardanlabs/service/business/ws"
-	"github.com/ardanlabs/service/business/ws/schema"
 	"github.com/ardanlabs/service/business/ws/sessionws"
-	"github.com/ardanlabs/service/business/ws/sessionregistry"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/ardanlabs/service/business/ws/schema"
 	"github.com/gorilla/websocket"
 )
 

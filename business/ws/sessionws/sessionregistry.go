@@ -1,9 +1,6 @@
 package sessionws
 
 import (
-	"context"
-	"time"
-
 	"github.com/ardanlabs/service/foundation/lockfreemap"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
@@ -33,6 +30,7 @@ func (r *LocalSessionRegistry) Remove(sessionID uuid.UUID) {
 	r.sessionCount.Dec()
 }
 
+/*
 func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessionID uuid.UUID) {
 	sessionIDs := tracker.ListLocalSessionIDByStream(PresenceStream{Mode: StreamModeNotifications, Subject: userID})
 	for _, foundSessionID := range sessionIDs {
@@ -62,3 +60,4 @@ func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessio
 		}
 	}
 }
+*/

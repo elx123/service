@@ -2,16 +2,23 @@ package sessionws
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/ardanlabs/service/business/config"
+	"github.com/ardanlabs/service/business/ws/schema/rtapi"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
+
+var ErrSessionQueueFull = errors.New("session outgoing queue full")
 
 type SessionFormat uint8
 
@@ -22,10 +29,10 @@ const (
 
 type SessionWS struct {
 	sync.Mutex
-	logger *zap.Logger
-	config config.Config
-	id     uuid.UUID
-	//format     SessionFormat
+	logger   *zap.Logger
+	config   config.Config
+	id       uuid.UUID
+	format   SessionFormat
 	userID   uuid.UUID
 	username *atomic.String
 	//vars       map[string]string
@@ -37,12 +44,12 @@ type SessionWS struct {
 	ctx         context.Context
 	ctxCancelFn context.CancelFunc
 
-	//protojsonMarshaler   *protojson.MarshalOptions
-	//protojsonUnmarshaler *protojson.UnmarshalOptions
-	wsMessageType      int
-	pingPeriodDuration time.Duration
-	pongWaitDuration   time.Duration
-	writeWaitDuration  time.Duration
+	protojsonMarshaler   *protojson.MarshalOptions
+	protojsonUnmarshaler *protojson.UnmarshalOptions
+	wsMessageType        int
+	pingPeriodDuration   time.Duration
+	pongWaitDuration     time.Duration
+	writeWaitDuration    time.Duration
 
 	sessionRegistry *LocalSessionRegistry
 	//statusRegistry  *StatusRegistry
@@ -52,15 +59,15 @@ type SessionWS struct {
 	//pipeline        *Pipeline
 	//runtime         *Runtime
 
-	stopped bool
-	conn    *websocket.Conn
-	//receivedMessageCounter int
-	pingTimer    *time.Timer
-	pingTimerCAS *atomic.Uint32
-	outgoingCh   chan []byte
+	stopped                bool
+	conn                   *websocket.Conn
+	receivedMessageCounter int
+	pingTimer              *time.Timer
+	pingTimerCAS           *atomic.Uint32
+	outgoingCh             chan []byte
 }
 
-func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry) *SessionWS {
+func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions) *SessionWS {
 	sessionLogger := logger.With(zap.String("uid", userID.String()), zap.String("sid", sessionID.String()))
 
 	sessionLogger.Info("New WebSocket session connected", zap.Uint8("format", uint8(format)))
@@ -82,10 +89,12 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 		ctx:         ctx,
 		ctxCancelFn: ctxCancelFn,
 
-		wsMessageType:      wsMessageType,
-		pingPeriodDuration: time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond,
-		pongWaitDuration:   time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
-		writeWaitDuration:  time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
+		protojsonMarshaler:   protojsonMarshaler,
+		protojsonUnmarshaler: protojsonUnmarshaler,
+		wsMessageType:        wsMessageType,
+		pingPeriodDuration:   time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond,
+		pongWaitDuration:     time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
+		writeWaitDuration:    time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
 
 		sessionRegistry: sessionRegistry,
 		//statusRegistry:  statusRegistry,
@@ -95,12 +104,12 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 		//pipeline:        pipeline,
 		//runtime:         runtime,
 
-		stopped: false,
-		conn:    conn,
-		//receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
-		pingTimer:    time.NewTimer(time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond),
-		pingTimerCAS: atomic.NewUint32(1),
-		outgoingCh:   make(chan []byte, config.GetSocket().OutgoingQueueSize),
+		stopped:                false,
+		conn:                   conn,
+		receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
+		pingTimer:              time.NewTimer(time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond),
+		pingTimerCAS:           atomic.NewUint32(1),
+		outgoingCh:             make(chan []byte, config.GetSocket().OutgoingQueueSize),
 	}
 }
 
@@ -172,7 +181,37 @@ func (s *SessionWS) pingNow() (string, bool) {
 	return "", true
 }
 
-func (s *SessionWS) Close() {
+func (s *SessionWS) maybeResetPingTimer() bool {
+	// If there's already a reset in progress there's no need to wait.
+	if !s.pingTimerCAS.CompareAndSwap(1, 0) {
+		return true
+	}
+	defer s.pingTimerCAS.CompareAndSwap(0, 1)
+
+	s.Lock()
+	if s.stopped {
+		s.Unlock()
+		return false
+	}
+	// CAS ensures concurrency is not a problem here.
+	if !s.pingTimer.Stop() {
+		select {
+		case <-s.pingTimer.C:
+		default:
+		}
+	}
+	s.pingTimer.Reset(s.pingPeriodDuration)
+	err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration))
+	s.Unlock()
+	if err != nil {
+		s.logger.Warn("Failed to set read deadline", zap.Error(err))
+		s.Close("failed to set read deadline", runtime.PresenceReasonDisconnect)
+		return false
+	}
+	return true
+}
+
+func (s *SessionWS) Close(msg string, envelopes ...*rtapi.Envelope) {
 	s.Lock()
 	if s.stopped {
 		s.Unlock()
@@ -185,22 +224,59 @@ func (s *SessionWS) Close() {
 	s.ctxCancelFn()
 
 	s.sessionRegistry.Remove(s.id)
-	if s.logger.Core().Enabled(zap.DebugLevel) {
-		s.logger.Info("Cleaned up closed connection session registry")
-	}
 
 	// Clean up internals.
 	s.pingTimer.Stop()
 	close(s.outgoingCh)
 
+	// Send final messages, if any are specified.
+	for _, envelope := range envelopes {
+		var payload []byte
+		var err error
+		switch s.format {
+		case SessionFormatProtobuf:
+			payload, err = proto.Marshal(envelope)
+		case SessionFormatJson:
+			fallthrough
+		default:
+			if buf, err := s.protojsonMarshaler.Marshal(envelope); err == nil {
+				payload = buf
+			}
+		}
+		if err != nil {
+			s.logger.Info("Could not marshal envelope", zap.Error(err))
+			continue
+		}
+
+		switch envelope.Message.(type) {
+		case *rtapi.Envelope_Error:
+			s.logger.Info("Sending error message", zap.Binary("payload", payload))
+		default:
+			s.logger.Info(fmt.Sprintf("Sending %T message", envelope.Message), zap.Any("envelope", envelope))
+		}
+
+		s.Lock()
+		if err := s.conn.SetWriteDeadline(time.Now().Add(s.writeWaitDuration)); err != nil {
+			s.Unlock()
+			s.logger.Info("Failed to set write deadline", zap.Error(err))
+			continue
+		}
+		if err := s.conn.WriteMessage(s.wsMessageType, payload); err != nil {
+			s.Unlock()
+			s.logger.Info("Could not write message", zap.Error(err))
+			continue
+		}
+		s.Unlock()
+	}
+
 	// Send close message.
 	if err := s.conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(s.writeWaitDuration)); err != nil {
 		// This may not be possible if the socket was already fully closed by an error.
-		s.logger.Debug("Could not send close message", zap.Error(err))
+		s.logger.Info("Could not send close message", zap.Error(err))
 	}
 	// Close WebSocket.
 	if err := s.conn.Close(); err != nil {
-		s.logger.Debug("Could not close", zap.Error(err))
+		s.logger.Info("Could not close", zap.Error(err))
 	}
 
 	s.logger.Info("Closed client connection")
@@ -210,8 +286,8 @@ func (s *SessionWS) Consume() {
 
 	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
 	if err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration)); err != nil {
-		s.logger.Warn("Failed to set initial read deadline", zap.Error(err))
-		s.Close("failed to set initial read deadline", runtime.PresenceReasonDisconnect)
+		s.logger.Info("Failed to set initial read deadline", zap.Error(err))
+		s.Close("failed to set initial read deadline")
 		return
 	}
 	// 这里我猜测，作为全双工协议，我们也需要设置对应的handler
@@ -272,7 +348,7 @@ IncomingLoop:
 		}
 		if err != nil {
 			// If the payload is malformed the client is incompatible or misbehaving, either way disconnect it now.
-			s.logger.Warn("Received malformed payload", zap.Binary("data", data))
+			s.logger.Info("Received malformed payload", zap.Binary("data", data))
 			reason = "received malformed payload"
 			break
 		}
@@ -301,4 +377,55 @@ IncomingLoop:
 	}
 
 	s.Close(reason, runtime.PresenceReasonDisconnect)
+}
+
+func (s *SessionWS) Send(envelope *rtapi.Envelope, reliable bool) error {
+	var payload []byte
+	var err error
+	switch s.format {
+	case SessionFormatProtobuf:
+		payload, err = proto.Marshal(envelope)
+	case SessionFormatJson:
+		fallthrough
+	default:
+		if buf, err := s.protojsonMarshaler.Marshal(envelope); err == nil {
+			payload = buf
+		}
+	}
+	if err != nil {
+		s.logger.Warn("Could not marshal envelope", zap.Error(err))
+		return err
+	}
+
+	switch envelope.Message.(type) {
+	case *rtapi.Envelope_Error:
+		s.logger.Info("Sending error message", zap.Binary("payload", payload))
+	default:
+		s.logger.Info(fmt.Sprintf("Sending %T message", envelope.Message), zap.Any("envelope", envelope))
+	}
+
+	return s.SendBytes(payload, reliable)
+}
+
+func (s *SessionWS) SendBytes(payload []byte, reliable bool) error {
+	s.Lock()
+	if s.stopped {
+		s.Unlock()
+		return nil
+	}
+
+	// Attempt to queue messages and observe failures.
+	select {
+	case s.outgoingCh <- payload:
+		s.Unlock()
+		return nil
+	default:
+		// The outgoing queue is full, likely because the remote client can't keep up.
+		// Terminate the connection immediately because the only alternative that doesn't block the server is
+		// to start dropping messages, which might cause unexpected behaviour.
+		s.Unlock()
+		s.logger.Warn("Could not write message, session outgoing queue full")
+		s.Close(ErrSessionQueueFull.Error())
+		return ErrSessionQueueFull
+	}
 }
