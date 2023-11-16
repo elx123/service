@@ -68,10 +68,13 @@ func TestGameServerCreateSucceed(t *testing.T) {
 		if request.Cid != data.Cid {
 			t.Fatalf("Fail to Compare")
 		}
-		if request.Message.(*rtapi.Envelope_GameServerCreateSucceed).GameServerCreateSucceed.IpAddress != data.Message.(*rtapi.Envelope_GameServerCreateSucceed).GameServerCreateSucceed.IpAddress {
+		incoming1 := request.GetGameServerCreateSucceed()
+		incoming2 := data.GetGameServerCreateSucceed()
+
+		if incoming1.IpAddress != incoming2.IpAddress {
 			t.Fatalf("Fail to Compare")
 		}
-		if request.Message.(*rtapi.Envelope_GameServerCreateSucceed).GameServerCreateSucceed.Port != data.Message.(*rtapi.Envelope_GameServerCreateSucceed).GameServerCreateSucceed.Port {
+		if incoming1.Port != incoming2.Port {
 			t.Fatalf("Fail to Compare")
 		}
 

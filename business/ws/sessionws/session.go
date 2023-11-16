@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
@@ -118,6 +117,7 @@ func (s *SessionWS) ID() uuid.UUID {
 }
 
 func (s *SessionWS) processOutgoing() {
+	var reason string
 
 OutgoingLoop:
 	for {
@@ -127,8 +127,9 @@ OutgoingLoop:
 			break OutgoingLoop
 		case <-s.pingTimer.C:
 			// Periodically send pings.
-			if _, ok := s.pingNow(); !ok {
+			if msg, ok := s.pingNow(); !ok {
 				// If ping fails the session will be stopped, clean up the loop.
+				reason = msg
 				break OutgoingLoop
 			}
 		case payload := <-s.outgoingCh:
@@ -143,13 +144,13 @@ OutgoingLoop:
 			if err := s.conn.SetWriteDeadline(time.Now().Add(s.writeWaitDuration)); err != nil {
 				s.Unlock()
 				s.logger.Warn("Failed to set write deadline", zap.Error(err))
-
+				reason = err.Error()
 				break OutgoingLoop
 			}
 			if err := s.conn.WriteMessage(s.wsMessageType, payload); err != nil {
 				s.Unlock()
 				s.logger.Warn("Could not write message", zap.Error(err))
-
+				reason = err.Error()
 				break OutgoingLoop
 			}
 			s.Unlock()
@@ -157,7 +158,7 @@ OutgoingLoop:
 		}
 	}
 
-	s.Close()
+	s.Close(reason)
 }
 
 func (s *SessionWS) pingNow() (string, bool) {
@@ -205,7 +206,7 @@ func (s *SessionWS) maybeResetPingTimer() bool {
 	s.Unlock()
 	if err != nil {
 		s.logger.Warn("Failed to set read deadline", zap.Error(err))
-		s.Close("failed to set read deadline", runtime.PresenceReasonDisconnect)
+		s.Close("failed to set read deadline")
 		return false
 	}
 	return true
@@ -282,6 +283,7 @@ func (s *SessionWS) Close(msg string, envelopes ...*rtapi.Envelope) {
 	s.logger.Info("Closed client connection")
 }
 
+/*
 func (s *SessionWS) Consume() {
 
 	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
@@ -429,3 +431,4 @@ func (s *SessionWS) SendBytes(payload []byte, reliable bool) error {
 		return ErrSessionQueueFull
 	}
 }
+*/
