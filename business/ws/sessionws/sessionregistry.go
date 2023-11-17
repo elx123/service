@@ -8,19 +8,19 @@ import (
 
 type LocalSessionRegistry struct {
 	userIds      map[string]string //userid - sessionid 用来临时记录
-	sessions     *lockfreemap.MapOf[uuid.UUID, SessionWS]
+	sessions     *lockfreemap.MapOf[uuid.UUID, *SessionWS]
 	sessionCount *atomic.Int32
 }
 
 func NewLocalSessionRegistry() *LocalSessionRegistry {
 	return &LocalSessionRegistry{
 
-		sessions:     &lockfreemap.MapOf[uuid.UUID, SessionWS]{},
+		sessions:     &lockfreemap.MapOf[uuid.UUID, *SessionWS]{},
 		sessionCount: atomic.NewInt32(0),
 	}
 }
 
-func (r *LocalSessionRegistry) Add(session SessionWS) {
+func (r *LocalSessionRegistry) Add(session *SessionWS) {
 	r.sessions.Store(session.ID(), session)
 	r.sessionCount.Inc()
 }
@@ -28,6 +28,14 @@ func (r *LocalSessionRegistry) Add(session SessionWS) {
 func (r *LocalSessionRegistry) Remove(sessionID uuid.UUID) {
 	r.sessions.Delete(sessionID)
 	r.sessionCount.Dec()
+}
+
+func (r *LocalSessionRegistry) Get(sessionID uuid.UUID) *SessionWS {
+	session, ok := r.sessions.Load(sessionID)
+	if !ok {
+		return nil
+	}
+	return session
 }
 
 /*

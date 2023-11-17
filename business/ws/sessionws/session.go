@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -29,7 +30,7 @@ const (
 type SessionWS struct {
 	sync.Mutex
 	logger   *zap.Logger
-	config   config.Config
+	config   *config.Config
 	id       uuid.UUID
 	format   SessionFormat
 	userID   uuid.UUID
@@ -81,6 +82,8 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 	return &SessionWS{
 		logger:   sessionLogger,
 		id:       sessionID,
+		config:   config,
+		format:   format,
 		userID:   userID,
 		username: atomic.NewString(username),
 		expiry:   expiry,
@@ -114,6 +117,10 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 
 func (s *SessionWS) ID() uuid.UUID {
 	return s.id
+}
+
+func (s *SessionWS) Format() SessionFormat {
+	return s.format
 }
 
 func (s *SessionWS) processOutgoing() {
@@ -283,7 +290,6 @@ func (s *SessionWS) Close(msg string, envelopes ...*rtapi.Envelope) {
 	s.logger.Info("Closed client connection")
 }
 
-/*
 func (s *SessionWS) Consume() {
 
 	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
@@ -306,6 +312,7 @@ func (s *SessionWS) Consume() {
 	var data []byte
 
 IncomingLoop:
+
 	for {
 		messageType, data, err := s.conn.ReadMessage()
 		if err != nil {
@@ -378,7 +385,7 @@ IncomingLoop:
 		s.metrics.Message(int64(len(data)), true)
 	}
 
-	s.Close(reason, runtime.PresenceReasonDisconnect)
+	s.Close(reason)
 }
 
 func (s *SessionWS) Send(envelope *rtapi.Envelope, reliable bool) error {
@@ -431,4 +438,3 @@ func (s *SessionWS) SendBytes(payload []byte, reliable bool) error {
 		return ErrSessionQueueFull
 	}
 }
-*/
