@@ -124,7 +124,6 @@ func (s *SessionWS) Format() SessionFormat {
 }
 
 func (s *SessionWS) processOutgoing() {
-	var reason string
 
 OutgoingLoop:
 	for {
@@ -136,7 +135,7 @@ OutgoingLoop:
 			// Periodically send pings.
 			if msg, ok := s.pingNow(); !ok {
 				// If ping fails the session will be stopped, clean up the loop.
-				reason = msg
+				//reason = msg
 				break OutgoingLoop
 			}
 		case payload := <-s.outgoingCh:
@@ -165,7 +164,7 @@ OutgoingLoop:
 		}
 	}
 
-	s.Close(reason)
+	s.Close()
 }
 
 func (s *SessionWS) pingNow() (string, bool) {
@@ -213,13 +212,13 @@ func (s *SessionWS) maybeResetPingTimer() bool {
 	s.Unlock()
 	if err != nil {
 		s.logger.Warn("Failed to set read deadline", zap.Error(err))
-		s.Close("failed to set read deadline")
+		s.Close()
 		return false
 	}
 	return true
 }
 
-func (s *SessionWS) Close(msg string, envelopes ...*rtapi.Envelope) {
+func (s *SessionWS) Close(envelopes ...*rtapi.Envelope) {
 	s.Lock()
 	if s.stopped {
 		s.Unlock()
@@ -295,7 +294,7 @@ func (s *SessionWS) Consume() {
 	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
 	if err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration)); err != nil {
 		s.logger.Info("Failed to set initial read deadline", zap.Error(err))
-		s.Close("failed to set initial read deadline")
+		s.Close()
 		return
 	}
 	// 这里我猜测，作为全双工协议，我们也需要设置对应的handler
@@ -385,9 +384,20 @@ IncomingLoop:
 		s.metrics.Message(int64(len(data)), true)
 	}
 
-	s.Close(reason)
+	s.Close()
 }
 
+//在网络编程和游戏服务器的上下文中，忽略发送消息时的错误并直接丢弃消息在某些情况下是可接受的，尤其是在以下情况：
+
+//非关键性消息：如果消息不是业务逻辑的关键部分，比如一些状态更新或非关键的通知，丢弃这些消息可能不会对游戏的核心体验产生显著影响。
+
+//高频率消息：在高频率通信中，例如实时多人游戏，丢失个别消息可能是可接受的，特别是当下一次更新能够快速补充丢失信息时。
+
+//性能考虑：处理每个错误并尝试重新发送可能会对性能产生负面影响，特别是在高负载或高并发的情况下。
+
+//容错性设计：系统可能设计为对丢失的消息具有容错性，例如通过后续的消息来纠正或更新状态。
+
+// 然而，这种处理方式可能不适用于所有类型的消息。对于某些关键性的业务逻辑，确保消息的可靠传递可能更为重要。因此，这是否是一个好的做法取决于具体的应用场景和消息的重要性。
 func (s *SessionWS) Send(envelope *rtapi.Envelope, reliable bool) error {
 	var payload []byte
 	var err error
