@@ -34,7 +34,7 @@ func GenToken(log *zap.SugaredLogger, cfg database.Config, userID string, kid st
 
 	// The call to retrieve a user requires an Admin role by the caller.
 	claims := auth.Claims{
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Subject: userID,
 		},
 		Roles: []string{auth.RoleAdmin},
@@ -72,11 +72,11 @@ func GenToken(log *zap.SugaredLogger, cfg database.Config, userID string, kid st
 	// iat (issued at time): Time at which the JWT was issued; can be used to determine age of the JWT
 	// jti (JWT ID): Unique identifier; can be used to prevent the JWT from being replayed (allows a token to be used only once)
 	claims = auth.Claims{
-		StandardClaims: jwt.StandardClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "service project",
 			Subject:   usr.ID,
-			ExpiresAt: time.Now().Add(8760 * time.Hour).Unix(),
-			IssuedAt:  time.Now().UTC().Unix(),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
 		},
 		Roles: usr.Roles,
 	}

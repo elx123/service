@@ -18,7 +18,6 @@ import (
 	userCore "github.com/ardanlabs/service/business/core/user"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/ardanlabs/service/business/web/mid"
-	"github.com/ardanlabs/service/business/ws/sessionws"
 	"github.com/ardanlabs/service/foundation/web"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -79,7 +78,7 @@ type APIMuxConfig struct {
 	Log             *zap.SugaredLogger
 	Auth            *auth.Auth
 	DB              *sqlx.DB
-	SessionRegistry *sessionws.LocalSessionRegistry
+	SessionRegistry *ws.LocalSessionRegistry
 	Config          *config.Config
 }
 

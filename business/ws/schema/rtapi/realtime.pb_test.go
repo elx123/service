@@ -3,8 +3,8 @@ package rtapi_test
 import (
 	"testing"
 
+	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/business/ws/schema/rtapi"
-	"github.com/ardanlabs/service/business/ws/sessionws"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -26,7 +26,7 @@ func TestGameServerCreateSucceed(t *testing.T) {
 		DiscardUnknown: false,
 	}
 
-	tableTest := [2]sessionws.SessionFormat{sessionws.SessionFormatProtobuf, sessionws.SessionFormatJson}
+	tableTest := [2]ws.SessionFormat{ws.SessionFormatProtobuf, ws.SessionFormatJson}
 
 	request := &rtapi.Envelope{
 		Cid: "1",
@@ -43,9 +43,9 @@ func TestGameServerCreateSucceed(t *testing.T) {
 	for _, v := range tableTest {
 
 		switch v {
-		case sessionws.SessionFormatProtobuf:
+		case ws.SessionFormatProtobuf:
 			payload, err = proto.Marshal(request)
-		case sessionws.SessionFormatJson:
+		case ws.SessionFormatJson:
 			fallthrough
 		default:
 			payload, err = jsonpbMarshaler.Marshal(request)
@@ -55,9 +55,9 @@ func TestGameServerCreateSucceed(t *testing.T) {
 		}
 
 		switch v {
-		case sessionws.SessionFormatProtobuf:
+		case ws.SessionFormatProtobuf:
 			err = proto.Unmarshal(payload, data)
-		case sessionws.SessionFormatJson:
+		case ws.SessionFormatJson:
 			fallthrough
 		default:
 			err = jsonpbUnmarshaler.Unmarshal(payload, data)
