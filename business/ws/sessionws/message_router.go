@@ -1,8 +1,7 @@
-package messagerouter
+package sessionws
 
 import (
 	"github.com/ardanlabs/service/business/ws/schema/rtapi"
-	"github.com/ardanlabs/service/business/ws/sessionws"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -11,10 +10,17 @@ import (
 
 type LocalMessageRouter struct {
 	protojsonMarshaler *protojson.MarshalOptions
-	sessionRegistry    *sessionws.LocalSessionRegistry
+	sessionRegistry    *LocalSessionRegistry
 }
 
-func (r *LocalMessageRouter) SendToPresenceIDs(logger *zap.Logger, sessionIDs []uuid.UUID, envelope *rtapi.Envelope, reliable bool) {
+func NewLocalMessageRouter(sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions) *LocalMessageRouter {
+	return &LocalMessageRouter{
+		protojsonMarshaler: protojsonMarshaler,
+		sessionRegistry:    sessionRegistry,
+	}
+}
+
+func (r *LocalMessageRouter) SendToPresenceIDs(logger *zap.Logger, sessionIDs []uuid.UUID, envelope *rtapi.Envelope) {
 	if len(sessionIDs) == 0 {
 		return
 	}
@@ -32,7 +38,7 @@ func (r *LocalMessageRouter) SendToPresenceIDs(logger *zap.Logger, sessionIDs []
 
 		var err error
 		switch session.Format() {
-		case sessionws.SessionFormatProtobuf:
+		case SessionFormatProtobuf:
 			if payloadProtobuf == nil {
 				// Marshal the payload now that we know this format is needed.
 				payloadProtobuf, err = proto.Marshal(envelope)
@@ -41,8 +47,8 @@ func (r *LocalMessageRouter) SendToPresenceIDs(logger *zap.Logger, sessionIDs []
 					return
 				}
 			}
-			err = session.SendBytes(payloadProtobuf, reliable)
-		case sessionws.SessionFormatJson:
+			err = session.SendBytes(payloadProtobuf)
+		case SessionFormatJson:
 			fallthrough
 		default:
 			if payloadJSON == nil {
@@ -54,7 +60,7 @@ func (r *LocalMessageRouter) SendToPresenceIDs(logger *zap.Logger, sessionIDs []
 					return
 				}
 			}
-			err = session.SendBytes(payloadJSON, reliable)
+			err = session.SendBytes(payloadJSON)
 		}
 		if err != nil {
 			logger.Info("Failed to route message", zap.String("sid", presenceID.String()), zap.Error(err))

@@ -56,7 +56,7 @@ type SessionWS struct {
 	//matchmaker      Matchmaker
 	//tracker         Tracker
 	//metrics         Metrics
-	//pipeline        *Pipeline
+	pipeline *Pipeline
 	//runtime         *Runtime
 
 	stopped                bool
@@ -67,7 +67,7 @@ type SessionWS struct {
 	outgoingCh             chan []byte
 }
 
-func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions) *SessionWS {
+func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, pipeline *Pipeline) *SessionWS {
 	sessionLogger := logger.With(zap.String("uid", userID.String()), zap.String("sid", sessionID.String()))
 
 	sessionLogger.Info("New WebSocket session connected", zap.Uint8("format", uint8(format)))
@@ -133,7 +133,7 @@ OutgoingLoop:
 			break OutgoingLoop
 		case <-s.pingTimer.C:
 			// Periodically send pings.
-			if msg, ok := s.pingNow(); !ok {
+			if _, ok := s.pingNow(); !ok {
 				// If ping fails the session will be stopped, clean up the loop.
 				//reason = msg
 				break OutgoingLoop
@@ -150,13 +150,13 @@ OutgoingLoop:
 			if err := s.conn.SetWriteDeadline(time.Now().Add(s.writeWaitDuration)); err != nil {
 				s.Unlock()
 				s.logger.Warn("Failed to set write deadline", zap.Error(err))
-				reason = err.Error()
+				//reason = err.Error()
 				break OutgoingLoop
 			}
 			if err := s.conn.WriteMessage(s.wsMessageType, payload); err != nil {
 				s.Unlock()
 				s.logger.Warn("Could not write message", zap.Error(err))
-				reason = err.Error()
+				//reason = err.Error()
 				break OutgoingLoop
 			}
 			s.Unlock()
@@ -307,9 +307,6 @@ func (s *SessionWS) Consume() {
 	// Start a routine to process outbound messages.
 	go s.processOutgoing()
 
-	var reason string
-	var data []byte
-
 IncomingLoop:
 
 	for {
@@ -322,16 +319,17 @@ IncomingLoop:
 				// https://github.com/golang/go/issues/4373
 				if e, ok := err.(*net.OpError); !ok || e.Err.Error() != "use of closed network connection" {
 					s.logger.Debug("Error reading message from client", zap.Error(err))
-					reason = err.Error()
+					//reason = err.Error()
 				}
 			}
 			break
 		}
+		// 这里代表着我们在update之初已经沟通好了,协议类型
 		if messageType != s.wsMessageType {
 			// Expected text but received binary, or expected binary but received text.
 			// Disconnect client if it attempts to use this kind of mixed protocol mode.
 			s.logger.Debug("Received unexpected WebSocket message type", zap.Int("expected", s.wsMessageType), zap.Int("actual", messageType))
-			reason = "received unexpected WebSocket message type"
+			//reason = "received unexpected WebSocket message type"
 			break
 		}
 
@@ -340,7 +338,7 @@ IncomingLoop:
 			s.receivedMessageCounter = s.config.GetSocket().PingBackoffThreshold
 			if !s.maybeResetPingTimer() {
 				// Problems resetting the ping timer indicate an error so we need to close the loop.
-				reason = "error updating ping timer"
+				//reason = "error updating ping timer"
 				break
 			}
 		}
@@ -357,31 +355,24 @@ IncomingLoop:
 		if err != nil {
 			// If the payload is malformed the client is incompatible or misbehaving, either way disconnect it now.
 			s.logger.Info("Received malformed payload", zap.Binary("data", data))
-			reason = "received malformed payload"
+			//reason = "received malformed payload"
 			break
 		}
 
 		switch request.Cid {
 		case "":
 			if !s.pipeline.ProcessRequest(s.logger, s, request) {
-				reason = "error processing message"
+				//reason = "error processing message"
 				break IncomingLoop
 			}
 		default:
 			requestLogger := s.logger.With(zap.String("cid", request.Cid))
 			if !s.pipeline.ProcessRequest(requestLogger, s, request) {
-				reason = "error processing message"
+				//reason = "error processing message"
 				break IncomingLoop
 			}
 		}
 
-		// Update incoming message metrics.
-		s.metrics.Message(int64(len(data)), false)
-	}
-
-	if reason != "" {
-		// Update incoming message metrics.
-		s.metrics.Message(int64(len(data)), true)
 	}
 
 	s.Close()
@@ -398,7 +389,7 @@ IncomingLoop:
 //容错性设计：系统可能设计为对丢失的消息具有容错性，例如通过后续的消息来纠正或更新状态。
 
 // 然而，这种处理方式可能不适用于所有类型的消息。对于某些关键性的业务逻辑，确保消息的可靠传递可能更为重要。因此，这是否是一个好的做法取决于具体的应用场景和消息的重要性。
-func (s *SessionWS) Send(envelope *rtapi.Envelope, reliable bool) error {
+func (s *SessionWS) Send(envelope *rtapi.Envelope) error {
 	var payload []byte
 	var err error
 	switch s.format {
@@ -423,10 +414,10 @@ func (s *SessionWS) Send(envelope *rtapi.Envelope, reliable bool) error {
 		s.logger.Info(fmt.Sprintf("Sending %T message", envelope.Message), zap.Any("envelope", envelope))
 	}
 
-	return s.SendBytes(payload, reliable)
+	return s.SendBytes(payload)
 }
 
-func (s *SessionWS) SendBytes(payload []byte, reliable bool) error {
+func (s *SessionWS) SendBytes(payload []byte) error {
 	s.Lock()
 	if s.stopped {
 		s.Unlock()
@@ -444,7 +435,7 @@ func (s *SessionWS) SendBytes(payload []byte, reliable bool) error {
 		// to start dropping messages, which might cause unexpected behaviour.
 		s.Unlock()
 		s.logger.Warn("Could not write message, session outgoing queue full")
-		s.Close(ErrSessionQueueFull.Error())
+		s.Close()
 		return ErrSessionQueueFull
 	}
 }

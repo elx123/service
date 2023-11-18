@@ -1,12 +1,10 @@
-package pipeline
+package sessionws
 
 import (
 	"database/sql"
 
 	"github.com/ardanlabs/service/business/config"
-	"github.com/ardanlabs/service/business/ws/messagerouter"
 	"github.com/ardanlabs/service/business/ws/schema/rtapi"
-	"github.com/ardanlabs/service/business/ws/schema/sessionws"
 	"github.com/ardanlabs/service/business/ws/sessionws"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -17,31 +15,29 @@ type Pipeline struct {
 	config               *config.Config
 	protojsonMarshaler   *protojson.MarshalOptions
 	protojsonUnmarshaler *protojson.UnmarshalOptions
-	sessionRegistry      *sessionws.LocalSessionRegistry
-	router               *messagerouter.LocalMessageRouter
+	router               *LocalMessageRouter
 }
 
-func NewPipeline(logger *zap.Logger, config *config.Config, db *sql.DB, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, sessionRegistry *sessionws.LocalSessionRegistry, router *messagerouter.LocalMessageRouter) *Pipeline {
+func NewPipeline(logger *zap.Logger, config *config.Config, db *sql.DB, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, router *LocalMessageRouter) *Pipeline {
 	return &Pipeline{
 		logger:               logger,
 		config:               config,
 		protojsonMarshaler:   protojsonMarshaler,
 		protojsonUnmarshaler: protojsonUnmarshaler,
-		sessionRegistry:      sessionRegistry,
 		router:               router,
 	}
 }
 
-func (p *Pipeline) ProcessRequest(logger *zap.Logger, session sessionws.SessionWS, in *rtapi.Envelope) bool {
+func (p *Pipeline) ProcessRequest(logger *zap.Logger, session *sessionws.SessionWS, in *rtapi.Envelope) bool {
 	if in.Message == nil {
 		session.Send(&rtapi.Envelope{Cid: in.Cid, Message: &rtapi.Envelope_Error{Error: &rtapi.Error{
 			Code:    int32(rtapi.Error_MISSING_PAYLOAD),
 			Message: "Missing message.",
-		}}}, true)
+		}}})
 		return false
 	}
 
-	var pipelineFn func(*zap.Logger, sessionws.SessionWS, *rtapi.Envelope) (bool, *rtapi.Envelope)
+	var pipelineFn func(*zap.Logger, *sessionws.SessionWS, *rtapi.Envelope) (bool, *rtapi.Envelope)
 
 	switch in.Message.(type) {
 	case *rtapi.Envelope_Ping:
@@ -57,11 +53,14 @@ func (p *Pipeline) ProcessRequest(logger *zap.Logger, session sessionws.SessionW
 		session.Send(&rtapi.Envelope{Cid: in.Cid, Message: &rtapi.Envelope_Error{Error: &rtapi.Error{
 			Code:    int32(rtapi.Error_UNRECOGNIZED_PAYLOAD),
 			Message: "Unrecognized message.",
-		}}}, true)
+		}}})
 		return false
 	}
 
-	success, out := pipelineFn(logger, session, in)
+	success, _ := pipelineFn(logger, session, in)
 
+	if !success {
+		return false
+	}
 	return true
 }

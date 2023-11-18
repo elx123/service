@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/ardanlabs/service/business/config"
-	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/business/ws/sessionws"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/google/uuid"
@@ -123,8 +122,5 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 
 		// Allow the server to begin processing incoming messages from this session.
 		session.Consume()
-
-		// Mark the end of the session.
-		metrics.CountWebsocketClosed(1)
 	}
 }
