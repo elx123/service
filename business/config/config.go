@@ -5,8 +5,9 @@ import (
 )
 
 type Config struct {
-	Name   string        `yaml:"name" json:"name" usage:"Nakama server’s node name - must be unique."`
-	Socket *SocketConfig `yaml:"socket" json:"socket" usage:"Socket configuration."`
+	Name    string         `yaml:"name" json:"name" usage:"Nakama server’s node name - must be unique."`
+	Socket  *SocketConfig  `yaml:"socket" json:"socket" usage:"Socket configuration."`
+	Session *SessionConfig `yaml:"session" json:"session" usage:"Session authentication settings."`
 }
 
 // SocketConfig is configuration relevant to the transport socket and protocol.
@@ -36,6 +37,11 @@ type SocketConfig struct {
 	TLSCert              []tls.Certificate `yaml:"-" json:"-"` // Created by processing CertPEMBlock and KeyPEMBlock, not set from input args directly.
 }
 
+// SessionConfig is configuration relevant to the session.
+type SessionConfig struct {
+	SingleSocket bool `yaml:"single_socket" json:"single_socket" usage:"Only allow one socket per user. Older sessions are disconnected. Default false."`
+}
+
 func NewSocketConfig() *SocketConfig {
 	return &SocketConfig{
 		ServerKey:            "defaultkey",
@@ -59,15 +65,24 @@ func NewSocketConfig() *SocketConfig {
 	}
 }
 
+func NewSessionConfig() *SessionConfig {
+	return &SessionConfig{}
+}
+
 // NewConfig constructs a Config struct which represents server settings, and populates it with default values.
 func NewConfig() *Config {
 	return &Config{
 		Name: "game_manager",
 
-		Socket: NewSocketConfig(),
+		Socket:  NewSocketConfig(),
+		Session: NewSessionConfig(),
 	}
 }
 
 func (c *Config) GetSocket() *SocketConfig {
 	return c.Socket
+}
+
+func (c *Config) GetSession() *SessionConfig {
+	return c.Session
 }

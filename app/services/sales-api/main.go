@@ -28,6 +28,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 /*
@@ -214,7 +215,7 @@ func run(log *zap.SugaredLogger) error {
 
 	sessionregistry := ws.NewLocalSessionRegistry()
 	config := config.NewConfig()
-
+	config.Session.SingleSocket = true
 	// Construct the mux for the API calls.
 	apiMux := handlers.APIMux(handlers.APIMuxConfig{
 		Shutdown:        shutdown,
@@ -223,7 +224,14 @@ func run(log *zap.SugaredLogger) error {
 		DB:              db,
 		SessionRegistry: sessionregistry,
 		Config:          config,
-		Pipeline:        ws.NewPipeline(log.Desugar(), config),
+		ProtojsonMarshaler: &protojson.MarshalOptions{
+			UseProtoNames:   true,
+			UseEnumNumbers:  true,
+			EmitUnpopulated: false,
+		},
+		ProtojsonUnmarshaler: &protojson.UnmarshalOptions{
+			DiscardUnknown: false,
+		},
 	})
 
 	// Construct a server to service the requests against the mux.

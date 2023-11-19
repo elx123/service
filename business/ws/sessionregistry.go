@@ -1,13 +1,19 @@
 package ws
 
 import (
+	"context"
+	"sync"
+	"time"
+
+	"github.com/ardanlabs/service/business/ws/schema/rtapi"
 	"github.com/ardanlabs/service/foundation/lockfreemap"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 )
 
 type LocalSessionRegistry struct {
-	userIds      map[string]string //userid - sessionid 用来临时记录
+	sync.RWMutex
+	userIds      map[uuid.UUID][]uuid.UUID //userid - sessionid 用来临时记录
 	sessions     *lockfreemap.MapOf[uuid.UUID, *SessionWS]
 	sessionCount *atomic.Int32
 }
@@ -38,34 +44,41 @@ func (r *LocalSessionRegistry) Get(sessionID uuid.UUID) *SessionWS {
 	return session
 }
 
-/*
-func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessionID uuid.UUID) {
-	sessionIDs := tracker.ListLocalSessionIDByStream(PresenceStream{Mode: StreamModeNotifications, Subject: userID})
-	for _, foundSessionID := range sessionIDs {
-		if foundSessionID == sessionID {
-			// Allow the current session, only disconnect any older ones.
-			continue
+func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessionid uuid.UUID) error {
+	r.Lock()
+	sessionids, ok := r.userIds[userID]
+	if !ok {
+		return nil
+	}
+
+	if len(sessionids) == 0 {
+		return nil
+	}
+
+	for _, foundSessionID := range sessionids {
+
+		if foundSessionID == sessionid {
+			return nil
 		}
+
 		session, ok := r.sessions.Load(foundSessionID)
 		if ok {
 			// No need to remove the session from the map, session.Close() will do that.
-			session.Close("server-side session disconnect", runtime.PresenceReasonDisconnect,
-				&rtapi.Envelope{Message: &rtapi.Envelope_Notifications{
-					Notifications: &rtapi.Notifications{
-						Notifications: []*api.Notification{
-							{
-								Id:         uuid.Must(uuid.NewV4()).String(),
-								Subject:    "single_socket",
-								Content:    "{}",
-								Code:       NotificationCodeSingleSocket,
-								SenderId:   "",
-								CreateTime: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
-								Persistent: false,
-							},
+			session.Close(&rtapi.Envelope{Message: &rtapi.Envelope_Notifications{
+				Notifications: &rtapi.Notifications{
+					Notifications: []*api.Notification{
+						{
+							Id:         uuid.Must(uuid.NewV4()).String(),
+							Subject:    "single_socket",
+							Content:    "{}",
+							Code:       NotificationCodeSingleSocket,
+							SenderId:   "",
+							CreateTime: &timestamppb.Timestamp{Seconds: time.Now().Unix()},
+							Persistent: false,
 						},
 					},
-				}})
+				},
+			}})
 		}
 	}
 }
-*/

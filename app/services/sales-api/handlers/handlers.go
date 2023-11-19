@@ -22,6 +22,7 @@ import (
 	"github.com/ardanlabs/service/foundation/web"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // Options represent optional parameters.
@@ -75,14 +76,14 @@ func DebugMux(build string, log *zap.SugaredLogger, db *sqlx.DB) http.Handler {
 
 // APIMuxConfig contains all the mandatory systems required by handlers.
 type APIMuxConfig struct {
-	Shutdown        chan os.Signal
-	Log             *zap.SugaredLogger
-	Auth            *auth.Auth
-	DB              *sqlx.DB
-	SessionRegistry *ws.LocalSessionRegistry
-	Config          *config.Config
-	Pipeline        *ws.Pipeline
-	MessageRouter   *ws.LocalMessageRouter
+	Shutdown             chan os.Signal
+	Log                  *zap.SugaredLogger
+	Auth                 *auth.Auth
+	DB                   *sqlx.DB
+	SessionRegistry      *ws.LocalSessionRegistry
+	Config               *config.Config
+	ProtojsonMarshaler   *protojson.MarshalOptions
+	ProtojsonUnmarshaler *protojson.UnmarshalOptions
 }
 
 // APIMux constructs an http.Handler with all application routes defined.
@@ -143,10 +144,19 @@ func v1(app *web.App, cfg APIMuxConfig) {
 	app.Handle(http.MethodPut, version, "/products/:id", pgh.Update, mid.Authenticate(cfg.Auth))
 	app.Handle(http.MethodDelete, version, "/products/:id", pgh.Delete, mid.Authenticate(cfg.Auth))
 
+	sessionregistry := ws.NewLocalSessionRegistry()
+	messagerouter := ws.NewLocalMessageRouter(sessionregistry, cfg.ProtojsonMarshaler)
+	pipeline := ws.NewPipeline(cfg.Log.Desugar(), cfg.Config, cfg.ProtojsonMarshaler, cfg.ProtojsonUnmarshaler, messagerouter)
+
 	wsh := v1WsBroadcastGrp.Handlers{
-		SessionRegistry: cfg.SessionRegistry,
-		Config:          cfg.Config,
-		Auth:            cfg.Auth,
+		Config:   cfg.Config,
+		Auth:     cfg.Auth,
+		Pipeline: pipeline,
+		//		MessageRouter:        messagerouter,
+		SessionRegistry:      cfg.SessionRegistry,
+		ProtojsonMarshaler:   cfg.ProtojsonMarshaler,
+		ProtojsonUnmarshaler: cfg.ProtojsonUnmarshaler,
 	}
+
 	app.Handle(http.MethodGet, version, "/ws", wsh.NewSocketWsAcceptor, mid.Authenticate(cfg.Auth))
 }

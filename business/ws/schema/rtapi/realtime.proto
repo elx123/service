@@ -79,4 +79,29 @@ message Error {
   string message = 2;
   // Additional error details which may be different for each response.
   map<string, string> context = 3;
+  // Notifications send by the server.
+  Notifications notifications = 4;
+}
+
+message Notifications {
+  // Collection of notifications.
+  repeated Notification notifications = 1;
+}
+
+// A notification in the server.
+message Notification {
+  // ID of the Notification.
+  string id = 1;
+  // Subject of the notification.
+  string subject = 2;
+  // Content of the notification in JSON.
+  string content = 3;
+  // Category code for this notification.
+  int32 code = 4;
+  // ID of the sender, if a user. Otherwise 'null'.
+  string sender_id = 5;
+  // The UNIX time (for gRPC clients) or ISO string (for REST clients) when the notification was created.
+  google.protobuf.Timestamp create_time = 6;
+  // True if this notification was persisted to the database.
+  bool persistent = 7;
 }

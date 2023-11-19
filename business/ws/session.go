@@ -36,7 +36,7 @@ type SessionWS struct {
 	userID   uuid.UUID
 	username *atomic.String
 	//vars       map[string]string
-	expiry int64
+	//expiry int64
 	//clientIP   string
 	//clientPort string
 	lang string
@@ -67,7 +67,7 @@ type SessionWS struct {
 	outgoingCh             chan []byte
 }
 
-func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, expiry int64, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, pipeline *Pipeline) *SessionWS {
+func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionFormat, sessionID, userID uuid.UUID, username string, conn *websocket.Conn, sessionRegistry *LocalSessionRegistry, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, pipeline *Pipeline) *SessionWS {
 	sessionLogger := logger.With(zap.String("uid", userID.String()), zap.String("sid", sessionID.String()))
 
 	sessionLogger.Info("New WebSocket session connected", zap.Uint8("format", uint8(format)))
@@ -86,7 +86,7 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 		format:   format,
 		userID:   userID,
 		username: atomic.NewString(username),
-		expiry:   expiry,
+		//expiry:   expiry,
 
 		ctx:         ctx,
 		ctxCancelFn: ctxCancelFn,

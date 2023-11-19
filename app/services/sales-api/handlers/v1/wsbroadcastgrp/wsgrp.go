@@ -12,13 +12,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type Handlers struct {
-	SessionRegistry *ws.LocalSessionRegistry
-	Config          *config.Config
-	Auth            *auth.Auth
-	logger          *zap.Logger
+	Config               *config.Config
+	Auth                 *auth.Auth
+	logger               *zap.Logger
+	Pipeline             *ws.Pipeline
+	MessageRouter        *ws.LocalMessageRouter
+	SessionRegistry      *ws.LocalSessionRegistry
+	ProtojsonMarshaler   *protojson.MarshalOptions
+	ProtojsonUnmarshaler *protojson.UnmarshalOptions
 }
 
 func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
@@ -53,22 +58,27 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	if err != nil {
 		// http.Error is invoked automatically from within the Upgrade function.
 		h.logger.Error("Could not upgrade to WebSocket", zap.Error(err))
-		return errors.New("Could not upgrade to WebSocket")
+		return errors.New("could not upgrade to webSocket")
 	}
 
 	//clientIP, clientPort := extractClientAddressFromRequest(logger, r)
 	//status, _ := strconv.ParseBool(r.URL.Query().Get("status"))
-	sessionID := uuid.NewString()
+	sessionID := uuid.New()
+
+	userid, err := uuid.Parse(claim.UserId)
+	if err != nil {
+		h.logger.Error("userid Parse fail", zap.String("userid", claim.UserId), zap.Error(err))
+	}
 
 	// Wrap the connection for application handling.
-	session := ws.NewSessionWS(h.logger, h.Config, format, sessionID, claim.UserId, claim.Username, claim.ExpiresAt, conn, h.SessionRegistry)
+	session := ws.NewSessionWS(h.logger, h.Config, format, sessionID, userid, claim.Username, conn, h.SessionRegistry, h.ProtojsonMarshaler, h.ProtojsonUnmarshaler, h.Pipeline)
 
 	// Add to the session registry.
 	h.SessionRegistry.Add(session)
 
-	if config.GetSession().SingleSocket {
+	if h.Config.GetSession().SingleSocket {
 		// Kick any other sockets for this user.
-		go sessionRegistry.SingleSession(session.Context(), tracker, userID, sessionID)
+		go h.SessionRegistry.SingleSession(ctx, userid, sessionID)
 	}
 
 	session.Consume()
