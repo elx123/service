@@ -66,15 +66,12 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	// Add to the session registry.
 	h.SessionRegistry.Add(session)
 
-	if status {
-
-		if config.GetSession().SingleSocket {
-			// Kick any other sockets for this user.
-			go sessionRegistry.SingleSession(session.Context(), tracker, userID, sessionID)
-		}
-
-		// Allow the server to begin processing incoming messages from this session.
-		session.Consume()
+	if config.GetSession().SingleSocket {
+		// Kick any other sockets for this user.
+		go sessionRegistry.SingleSession(session.Context(), tracker, userID, sessionID)
 	}
+
+	session.Consume()
+
 	return nil
 }

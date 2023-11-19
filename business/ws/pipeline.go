@@ -1,11 +1,8 @@
-package sessionws
+package ws
 
 import (
-	"database/sql"
-
 	"github.com/ardanlabs/service/business/config"
 	"github.com/ardanlabs/service/business/ws/schema/rtapi"
-	"github.com/ardanlabs/service/business/ws/sessionws"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -18,7 +15,7 @@ type Pipeline struct {
 	router               *LocalMessageRouter
 }
 
-func NewPipeline(logger *zap.Logger, config *config.Config, db *sql.DB, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, router *LocalMessageRouter) *Pipeline {
+func NewPipeline(logger *zap.Logger, config *config.Config, protojsonMarshaler *protojson.MarshalOptions, protojsonUnmarshaler *protojson.UnmarshalOptions, router *LocalMessageRouter) *Pipeline {
 	return &Pipeline{
 		logger:               logger,
 		config:               config,
@@ -28,7 +25,7 @@ func NewPipeline(logger *zap.Logger, config *config.Config, db *sql.DB, protojso
 	}
 }
 
-func (p *Pipeline) ProcessRequest(logger *zap.Logger, session *sessionws.SessionWS, in *rtapi.Envelope) bool {
+func (p *Pipeline) ProcessRequest(logger *zap.Logger, session *SessionWS, in *rtapi.Envelope) bool {
 	if in.Message == nil {
 		session.Send(&rtapi.Envelope{Cid: in.Cid, Message: &rtapi.Envelope_Error{Error: &rtapi.Error{
 			Code:    int32(rtapi.Error_MISSING_PAYLOAD),
@@ -37,7 +34,7 @@ func (p *Pipeline) ProcessRequest(logger *zap.Logger, session *sessionws.Session
 		return false
 	}
 
-	var pipelineFn func(*zap.Logger, *sessionws.SessionWS, *rtapi.Envelope) (bool, *rtapi.Envelope)
+	var pipelineFn func(*zap.Logger, *SessionWS, *rtapi.Envelope) (bool, *rtapi.Envelope)
 
 	switch in.Message.(type) {
 	case *rtapi.Envelope_Ping:

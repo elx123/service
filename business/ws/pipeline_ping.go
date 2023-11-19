@@ -1,4 +1,4 @@
-package sessionws
+package ws
 
 import (
 	"github.com/ardanlabs/service/business/ws/schema/rtapi"

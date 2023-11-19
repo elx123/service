@@ -17,7 +17,7 @@ import (
 	"github.com/ardanlabs/service/business/config"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/ardanlabs/service/business/sys/database"
-	"github.com/ardanlabs/service/business/ws/sessionws"
+	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/foundation/keystore"
 	"github.com/ardanlabs/service/foundation/logger"
 	"go.opentelemetry.io/otel"
@@ -212,7 +212,7 @@ func run(log *zap.SugaredLogger) error {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	sessionregistry := sessionws.NewLocalSessionRegistry()
+	sessionregistry := ws.NewLocalSessionRegistry()
 	config := config.NewConfig()
 
 	// Construct the mux for the API calls.
@@ -223,6 +223,7 @@ func run(log *zap.SugaredLogger) error {
 		DB:              db,
 		SessionRegistry: sessionregistry,
 		Config:          config,
+		Pipeline:        ws.NewPipeline(log.Desugar(), config),
 	})
 
 	// Construct a server to service the requests against the mux.

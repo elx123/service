@@ -1,4 +1,4 @@
-package sessionws
+package ws
 
 import (
 	"context"

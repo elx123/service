@@ -18,6 +18,7 @@ import (
 	userCore "github.com/ardanlabs/service/business/core/user"
 	"github.com/ardanlabs/service/business/sys/auth"
 	"github.com/ardanlabs/service/business/web/mid"
+	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/foundation/web"
 	"github.com/jmoiron/sqlx"
 	"go.uber.org/zap"
@@ -80,6 +81,8 @@ type APIMuxConfig struct {
 	DB              *sqlx.DB
 	SessionRegistry *ws.LocalSessionRegistry
 	Config          *config.Config
+	Pipeline        *ws.Pipeline
+	MessageRouter   *ws.LocalMessageRouter
 }
 
 // APIMux constructs an http.Handler with all application routes defined.
