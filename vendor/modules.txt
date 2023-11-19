@@ -168,3 +168,4 @@ google.golang.org/protobuf/reflect/protoreflect
 google.golang.org/protobuf/reflect/protoregistry
 google.golang.org/protobuf/runtime/protoiface
 google.golang.org/protobuf/runtime/protoimpl
+google.golang.org/protobuf/types/known/timestamppb

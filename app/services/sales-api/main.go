@@ -216,6 +216,7 @@ func run(log *zap.SugaredLogger) error {
 	sessionregistry := ws.NewLocalSessionRegistry()
 	config := config.NewConfig()
 	config.Session.SingleSocket = true
+
 	// Construct the mux for the API calls.
 	apiMux := handlers.APIMux(handlers.APIMuxConfig{
 		Shutdown:        shutdown,

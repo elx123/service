@@ -9,6 +9,7 @@ import (
 	"github.com/ardanlabs/service/foundation/lockfreemap"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type LocalSessionRegistry struct {
@@ -58,7 +59,7 @@ func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessio
 	for _, foundSessionID := range sessionids {
 
 		if foundSessionID == sessionid {
-			return nil
+			continue
 		}
 
 		session, ok := r.sessions.Load(foundSessionID)
@@ -66,9 +67,9 @@ func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessio
 			// No need to remove the session from the map, session.Close() will do that.
 			session.Close(&rtapi.Envelope{Message: &rtapi.Envelope_Notifications{
 				Notifications: &rtapi.Notifications{
-					Notifications: []*api.Notification{
+					Notifications: []*rtapi.Notification{
 						{
-							Id:         uuid.Must(uuid.NewV4()).String(),
+							Id:         uuid.NewString(),
 							Subject:    "single_socket",
 							Content:    "{}",
 							Code:       NotificationCodeSingleSocket,
@@ -81,4 +82,5 @@ func (r *LocalSessionRegistry) SingleSession(ctx context.Context, userID, sessio
 			}})
 		}
 	}
+	return nil
 }

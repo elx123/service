@@ -27,6 +27,8 @@ const (
 	SessionFormatProtobuf
 )
 
+const NotificationCodeSingleSocket int32 = -7
+
 type SessionWS struct {
 	sync.Mutex
 	logger   *zap.Logger
