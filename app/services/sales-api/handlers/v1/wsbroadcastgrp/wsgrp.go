@@ -3,7 +3,6 @@ package wsbroadcastgrp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/ardanlabs/service/business/config"
@@ -59,8 +58,7 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	if err != nil {
 		// http.Error is invoked automatically from within the Upgrade function.
 		h.logger.Error("Could not upgrade to WebSocket", zap.Error(err))
-		return fmt.Errorf("could not upgrade to webSocket: %w", err)
-		//errors.New("could not upgrade to webSocket")
+		return nil
 	}
 
 	//clientIP, clientPort := extractClientAddressFromRequest(logger, r)
@@ -70,6 +68,7 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	userid, err := uuid.Parse(claim.UserId)
 	if err != nil {
 		h.logger.Error("userid Parse fail", zap.String("userid", claim.UserId), zap.Error(err))
+		return err
 	}
 
 	// Wrap the connection for application handling.
