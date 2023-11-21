@@ -6,6 +6,7 @@ import (
 
 	"github.com/ardanlabs/service/business/sys/validate"
 	"github.com/ardanlabs/service/foundation/web"
+	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
@@ -48,6 +49,10 @@ func Errors(log *zap.SugaredLogger) web.Middleware {
 						Error: act.Error(),
 					}
 					status = act.Status
+				case websocket.HandshakeError:
+					er = validate.ErrorResponse{
+						Error: act.Error(),
+					}
 				default:
 					er = validate.ErrorResponse{
 						Error: http.StatusText(http.StatusInternalServerError),

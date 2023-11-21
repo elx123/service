@@ -8,6 +8,7 @@ import (
 
 	"github.com/ardanlabs/service/business/config"
 	"github.com/ardanlabs/service/business/sys/auth"
+	"github.com/ardanlabs/service/business/sys/validate"
 	"github.com/ardanlabs/service/business/ws"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -44,13 +45,13 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 		format = ws.SessionFormatJson
 	default:
 		// Invalid values are rejected.
-		http.Error(w, "Invalid format parameter", 400)
-		return errors.New("Invalid format parameter")
+		//http.Error(w, "Invalid format parameter", 400)
+		return validate.NewRequestError(errors.New("invalid format parameter"), http.StatusBadRequest)
 	}
 
 	claim, err := auth.GetClaims(ctx)
 	if err != nil {
-		return fmt.Errorf("err: %w", err)
+		return errors.New("claims missing from context")
 	}
 
 	// Upgrade to WebSocket.
@@ -58,7 +59,8 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	if err != nil {
 		// http.Error is invoked automatically from within the Upgrade function.
 		h.logger.Error("Could not upgrade to WebSocket", zap.Error(err))
-		return errors.New("could not upgrade to webSocket")
+		return fmt.Errorf("could not upgrade to webSocket: %w", err)
+		//errors.New("could not upgrade to webSocket")
 	}
 
 	//clientIP, clientPort := extractClientAddressFromRequest(logger, r)
