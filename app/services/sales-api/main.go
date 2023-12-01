@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"expvar" // Calls init function.
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -70,9 +71,18 @@ func run(log *zap.SugaredLogger) error {
 
 	const prefix = "SALES"
 	cfg := config.NewConfig()
-	err := envconfig.Process(build, &cfg)
+	err := envconfig.Process(prefix, cfg)
 	if err != nil {
 		log.Fatal(err.Error())
+	}
+	h := flag.Bool("h", false, "display help")
+	// 解析命令行参数
+	flag.Parse()
+
+	// 如果 `-h` 参数被设置了，就显示帮助信息
+	if *h {
+		envconfig.Usage("", cfg)
+		return nil
 	}
 
 	// =========================================================================
