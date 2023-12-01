@@ -96,9 +96,9 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 		protojsonMarshaler:   protojsonMarshaler,
 		protojsonUnmarshaler: protojsonUnmarshaler,
 		wsMessageType:        wsMessageType,
-		pingPeriodDuration:   time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond,
-		pongWaitDuration:     time.Duration(config.GetSocket().PongWaitMs) * time.Millisecond,
-		writeWaitDuration:    time.Duration(config.GetSocket().WriteWaitMs) * time.Millisecond,
+		pingPeriodDuration:   time.Duration(config.Socket.PingPeriodMs) * time.Millisecond,
+		pongWaitDuration:     time.Duration(config.Socket.PongWaitMs) * time.Millisecond,
+		writeWaitDuration:    time.Duration(config.Socket.WriteWaitMs) * time.Millisecond,
 
 		sessionRegistry: sessionRegistry,
 		//statusRegistry:  statusRegistry,
@@ -110,10 +110,10 @@ func NewSessionWS(logger *zap.Logger, config *config.Config, format SessionForma
 
 		stopped:                false,
 		conn:                   conn,
-		receivedMessageCounter: config.GetSocket().PingBackoffThreshold,
-		pingTimer:              time.NewTimer(time.Duration(config.GetSocket().PingPeriodMs) * time.Millisecond),
+		receivedMessageCounter: config.Socket.PingBackoffThreshold,
+		pingTimer:              time.NewTimer(time.Duration(config.Socket.PingPeriodMs) * time.Millisecond),
 		pingTimerCAS:           atomic.NewUint32(1),
-		outgoingCh:             make(chan []byte, config.GetSocket().OutgoingQueueSize),
+		outgoingCh:             make(chan []byte, config.Socket.OutgoingQueueSize),
 	}
 }
 
@@ -293,7 +293,7 @@ func (s *SessionWS) Close(envelopes ...*rtapi.Envelope) {
 
 func (s *SessionWS) Consume() {
 
-	s.conn.SetReadLimit(s.config.GetSocket().MaxMessageSizeBytes)
+	s.conn.SetReadLimit(s.config.Socket.MaxMessageSizeBytes)
 	if err := s.conn.SetReadDeadline(time.Now().Add(s.pongWaitDuration)); err != nil {
 		s.logger.Info("Failed to set initial read deadline", zap.Error(err))
 		s.Close()
@@ -337,7 +337,7 @@ IncomingLoop:
 
 		s.receivedMessageCounter--
 		if s.receivedMessageCounter <= 0 {
-			s.receivedMessageCounter = s.config.GetSocket().PingBackoffThreshold
+			s.receivedMessageCounter = s.config.Socket.PingBackoffThreshold
 			if !s.maybeResetPingTimer() {
 				// Problems resetting the ping timer indicate an error so we need to close the loop.
 				//reason = "error updating ping timer"

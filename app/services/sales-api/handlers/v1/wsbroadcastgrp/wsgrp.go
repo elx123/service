@@ -28,8 +28,8 @@ type Handlers struct {
 
 func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
 	upgrader := &websocket.Upgrader{
-		ReadBufferSize:  h.Config.GetSocket().ReadBufferSizeBytes,
-		WriteBufferSize: h.Config.GetSocket().WriteBufferSizeBytes,
+		ReadBufferSize:  h.Config.Socket.ReadBufferSizeBytes,
+		WriteBufferSize: h.Config.Socket.WriteBufferSizeBytes,
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
@@ -77,7 +77,7 @@ func (h Handlers) NewSocketWsAcceptor(ctx context.Context, w http.ResponseWriter
 	// Add to the session registry.
 	h.SessionRegistry.Add(session)
 
-	if h.Config.GetSession().SingleSocket {
+	if h.Config.Session.SingleSocket {
 		// Kick any other sockets for this user.
 		go h.SessionRegistry.SingleSession(ctx, userid, sessionID)
 	}

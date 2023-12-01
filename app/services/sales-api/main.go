@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"expvar" // Calls init function.
 	"fmt"
 	"net/http"
@@ -10,9 +9,7 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
-	"time"
 
-	"github.com/ardanlabs/conf/v2"
 	"github.com/ardanlabs/service/app/services/sales-api/handlers"
 	"github.com/ardanlabs/service/business/config"
 	"github.com/ardanlabs/service/business/sys/auth"
@@ -20,6 +17,7 @@ import (
 	"github.com/ardanlabs/service/business/ws"
 	"github.com/ardanlabs/service/foundation/keystore"
 	"github.com/ardanlabs/service/foundation/logger"
+	"github.com/kelseyhightower/envconfig"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/zipkin"
@@ -70,49 +68,11 @@ func run(log *zap.SugaredLogger) error {
 	// =========================================================================
 	// Configuration
 
-	cfg := struct {
-		conf.Version
-		Web struct {
-			APIHost         string        `conf:"default:0.0.0.0:3000"`
-			DebugHost       string        `conf:"default:0.0.0.0:4000"`
-			ReadTimeout     time.Duration `conf:"default:5s"`
-			WriteTimeout    time.Duration `conf:"default:10s"`
-			IdleTimeout     time.Duration `conf:"default:120s"`
-			ShutdownTimeout time.Duration `conf:"default:20s"`
-		}
-		Auth struct {
-			KeysFolder string `conf:"default:zarf/keys/"`
-			ActiveKID  string `conf:"default:54bb2165-71e1-41a6-af3e-7da4a0e1e2c1"`
-		}
-		DB struct {
-			User         string `conf:"default:postgres"`
-			Password     string `conf:"default:postgres,mask"`
-			Host         string `conf:"default:localhost"`
-			Name         string `conf:"default:postgres"`
-			MaxIdleConns int    `conf:"default:0"`
-			MaxOpenConns int    `conf:"default:0"`
-			DisableTLS   bool   `conf:"default:true"`
-		}
-		Zipkin struct {
-			ReporterURI string  `conf:"default:http://localhost:9411/api/v2/spans"`
-			ServiceName string  `conf:"default:sales-api"`
-			Probability float64 `conf:"default:0.05"`
-		}
-	}{
-		Version: conf.Version{
-			Build: build,
-			Desc:  "copyright information here",
-		},
-	}
-
 	const prefix = "SALES"
-	help, err := conf.Parse(prefix, &cfg)
+	cfg := config.NewConfig()
+	err := envconfig.Process(build, &cfg)
 	if err != nil {
-		if errors.Is(err, conf.ErrHelpWanted) {
-			fmt.Println(help)
-			return nil
-		}
-		return fmt.Errorf("parsing config: %w", err)
+		log.Fatal(err.Error())
 	}
 
 	// =========================================================================
@@ -121,11 +81,11 @@ func run(log *zap.SugaredLogger) error {
 	log.Infow("starting service", "version", build)
 	defer log.Infow("shutdown complete")
 
-	out, err := conf.String(&cfg)
+	err = envconfig.Usage(prefix, cfg)
 	if err != nil {
 		return fmt.Errorf("generating config for output: %w", err)
 	}
-	log.Infow("startup", "config", out)
+	//log.Infow("startup", "config", out)
 
 	expvar.NewString("build").Set(build)
 
