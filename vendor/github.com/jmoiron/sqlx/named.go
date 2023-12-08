@@ -418,7 +418,6 @@ func Named(query string, arg interface{}) (string, []interface{}, error) {
 	return bindNamedMapper(QUESTION, query, arg, mapper())
 }
 
-// 这个函数最本质的作用就是 将bindvar 转换成占位符, 同时将struct 中的field value 取出来, 作为reflect.Value 返回
 func bindNamedMapper(bindType int, query string, arg interface{}, m *reflectx.Mapper) (string, []interface{}, error) {
 	t := reflect.TypeOf(arg)
 	k := t.Kind()
