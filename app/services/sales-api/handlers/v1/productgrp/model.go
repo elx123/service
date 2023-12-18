@@ -21,6 +21,7 @@ type AppProduct struct {
 	DateUpdated string  `json:"dateUpdated"`
 }
 
+// 这个函数被用来返回给用户数据
 func toAppProduct(prd product.Product) AppProduct {
 	return AppProduct{
 		ID:          prd.ID.String(),
