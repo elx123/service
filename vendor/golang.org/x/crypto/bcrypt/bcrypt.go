@@ -92,6 +92,13 @@ var ErrPasswordTooLong = errors.New("bcrypt: password length exceeds 72 bytes")
 // to compare the returned hashed password with its cleartext version.
 // GenerateFromPassword does not accept passwords longer than 72 bytes, which
 // is the longest password bcrypt will operate on.
+//
+// GenerateFromPassword 返回给定成本的密码的 bcrypt 哈希值。如果给定的成本小于 MinCost，则成本将设置为
+// DefaultCost。使用此包中定义的 CompareHashAndPassword
+// 将返回的散列密码与其明文版本进行比较。
+// GenerateFromPassword 不接受超过 72 字节的密码，
+// 这是 bcrypt 将操作的最长密码
+
 func GenerateFromPassword(password []byte, cost int) ([]byte, error) {
 	if len(password) > 72 {
 		return nil, ErrPasswordTooLong

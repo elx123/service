@@ -78,6 +78,7 @@ func (c *Core) Create(ctx context.Context, nu NewUser) (User, error) {
 
 	// This provides an example of how to execute a transaction if required.
 	tran := func(s Storer) error {
+		// 待看
 		if err := s.Create(ctx, usr); err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
@@ -116,11 +117,11 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 		usr.Enabled = *uu.Enabled
 	}
 	usr.DateUpdated = time.Now()
-
+	// 待看
 	if err := c.storer.Update(ctx, usr); err != nil {
 		return User{}, fmt.Errorf("update: %w", err)
 	}
-
+	//待看
 	if err := c.evnCore.SendEvent(ctx, uu.UpdatedEvent(usr.ID)); err != nil {
 		return User{}, fmt.Errorf("failed to send a `%s` event: %w", EventUpdated, err)
 	}
@@ -130,6 +131,7 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 
 // Delete removes a user from the database.
 func (c *Core) Delete(ctx context.Context, usr User) error {
+	// 待看
 	if err := c.storer.Delete(ctx, usr); err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
@@ -139,6 +141,7 @@ func (c *Core) Delete(ctx context.Context, usr User) error {
 
 // Query retrieves a list of existing users from the database.
 func (c *Core) Query(ctx context.Context, filter QueryFilter, orderBy order.By, pageNumber int, rowsPerPage int) ([]User, error) {
+	// 待看
 	users, err := c.storer.Query(ctx, filter, orderBy, pageNumber, rowsPerPage)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
@@ -149,11 +152,13 @@ func (c *Core) Query(ctx context.Context, filter QueryFilter, orderBy order.By, 
 
 // Count returns the total number of users in the store.
 func (c *Core) Count(ctx context.Context, filter QueryFilter) (int, error) {
+	// 待看
 	return c.storer.Count(ctx, filter)
 }
 
 // QueryByID gets the specified user from the database.
 func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
+	// 待看
 	user, err := c.storer.QueryByID(ctx, userID)
 	if err != nil {
 		return User{}, fmt.Errorf("query: userID[%s]: %w", userID, err)
@@ -164,6 +169,7 @@ func (c *Core) QueryByID(ctx context.Context, userID uuid.UUID) (User, error) {
 
 // QueryByIDs gets the specified user from the database.
 func (c *Core) QueryByIDs(ctx context.Context, userIDs []uuid.UUID) ([]User, error) {
+	// 待看
 	user, err := c.storer.QueryByIDs(ctx, userIDs)
 	if err != nil {
 		return nil, fmt.Errorf("query: userIDs[%s]: %w", userIDs, err)
@@ -174,6 +180,7 @@ func (c *Core) QueryByIDs(ctx context.Context, userIDs []uuid.UUID) ([]User, err
 
 // QueryByEmail gets the specified user from the database by email.
 func (c *Core) QueryByEmail(ctx context.Context, email mail.Address) (User, error) {
+	// 待看
 	user, err := c.storer.QueryByEmail(ctx, email)
 	if err != nil {
 		return User{}, fmt.Errorf("query: email[%s]: %w", email, err)
