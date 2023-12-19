@@ -121,7 +121,7 @@ func (c *Core) Update(ctx context.Context, usr User, uu UpdateUser) (User, error
 	if err := c.storer.Update(ctx, usr); err != nil {
 		return User{}, fmt.Errorf("update: %w", err)
 	}
-	//待看
+	// 这里update逻辑由上下文确定,而SendEvent 由注册的函数决定真正执行的内容,所以我更愿意称之为hook
 	if err := c.evnCore.SendEvent(ctx, uu.UpdatedEvent(usr.ID)); err != nil {
 		return User{}, fmt.Errorf("failed to send a `%s` event: %w", EventUpdated, err)
 	}
