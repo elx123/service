@@ -60,7 +60,7 @@ func NewCore(log *zap.SugaredLogger, evnCore *event.Core, usrCore UserCore, stor
 		usrCore: usrCore,
 		storer:  storer,
 	}
-
+	// 当我们factory这个Core的时候,我们会注册handler
 	core.registerEventHandlers(evnCore)
 
 	return &core

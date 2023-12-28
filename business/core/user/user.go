@@ -78,7 +78,6 @@ func (c *Core) Create(ctx context.Context, nu NewUser) (User, error) {
 
 	// This provides an example of how to execute a transaction if required.
 	tran := func(s Storer) error {
-		// 待看
 		if err := s.Create(ctx, usr); err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
