@@ -16,6 +16,7 @@ var orderByFields = map[string]string{
 }
 
 func orderByClause(orderBy order.By) (string, error) {
+	// 这里有个细节,就是我们用business 层的ID,去映射store 层的ID
 	by, exists := orderByFields[orderBy.Field]
 	if !exists {
 		return "", fmt.Errorf("field %q does not exist", orderBy.Field)

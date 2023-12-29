@@ -48,6 +48,7 @@ type AppProductDetails struct {
 	DateUpdated string  `json:"dateUpdated"`
 }
 
+// 这里需要用user表中Name,所以才会关联user表
 func toAppProductDetails(prd product.Product, usr user.User) AppProductDetails {
 	return AppProductDetails{
 		ID:          prd.ID.String(),

@@ -8,6 +8,7 @@ import (
 )
 
 // QueryFilter holds the available fields a query can be filtered on.
+// 这里用指针是为了传入business 层
 type QueryFilter struct {
 	ID       *uuid.UUID `validate:"omitempty"`
 	Name     *string    `validate:"omitempty,min=3"`

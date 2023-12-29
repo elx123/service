@@ -18,12 +18,14 @@ var orderByFields = map[string]struct{}{
 	user.OrderByEnabled: {},
 }
 
+// 这里我们要根据application lvl 的string 构造一个business lvl 的order by
 func parseOrder(r *http.Request) (order.By, error) {
 	orderBy, err := order.Parse(r, user.DefaultOrderBy)
 	if err != nil {
 		return order.By{}, err
 	}
 
+	// 这里我们将生成的orderBy 与business层 做一个校验
 	if _, exists := orderByFields[orderBy.Field]; !exists {
 		return order.By{}, validate.NewFieldsError(orderBy.Field, errors.New("order field does not exist"))
 	}

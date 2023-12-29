@@ -24,6 +24,7 @@ var directions = map[string]string{
 // =============================================================================
 
 // By represents a field used to order by and direction.
+
 type By struct {
 	Field     string
 	Direction string
@@ -49,7 +50,7 @@ func Parse(r *http.Request, defaultOrder By) (By, error) {
 	}
 
 	orderParts := strings.Split(v, ",")
-
+	// 这里就是将web 中指定的排序规则,提取出来,默认支持field,directions 的形式
 	var by By
 	switch len(orderParts) {
 	case 1:
@@ -59,7 +60,7 @@ func Parse(r *http.Request, defaultOrder By) (By, error) {
 	default:
 		return By{}, validate.NewFieldsError(v, errors.New("unknown order field"))
 	}
-
+	// 这里还需要验证directions 是否 有效
 	if _, exists := directions[by.Direction]; !exists {
 		return By{}, validate.NewFieldsError(v, fmt.Errorf("unknown direction: %s", by.Direction))
 	}
