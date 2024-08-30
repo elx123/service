@@ -46,6 +46,7 @@ func toRecord(r slog.Record) Record {
 }
 
 // EventFunc is a function to be executed when configured against a log level.
+// EventFunc 是根据日志级别配置时要执行的函数。
 type EventFunc func(ctx context.Context, r Record)
 
 // Events contains an assignment of an event function to a log level.
