@@ -105,7 +105,6 @@ GOLANG          := golang:1.21.3
 ALPINE          := alpine:3.18
 KIND            := kindest/node:v1.27.3
 POSTGRES        := postgres:15.4
-VAULT           := hashicorp/vault:1.15
 GRAFANA         := grafana/grafana:10.1.0
 PROMETHEUS      := prom/prometheus:v2.47.0
 TEMPO           := grafana/tempo:2.2.0
@@ -140,14 +139,12 @@ dev-brew:
 	brew list kubectl || brew install kubectl
 	brew list kustomize || brew install kustomize
 	brew list pgcli || brew install pgcli
-	brew list vault || brew install vault
 
 dev-docker:
 	docker pull $(GOLANG)
 	docker pull $(ALPINE)
 	docker pull $(KIND)
 	docker pull $(POSTGRES)
-	docker pull $(VAULT)
 	docker pull $(GRAFANA)
 	docker pull $(PROMETHEUS)
 	docker pull $(TEMPO)
@@ -186,7 +183,6 @@ dev-up:
 
 	kubectl wait --timeout=120s --namespace=local-path-storage --for=condition=Available deployment/local-path-provisioner
 
-	kind load docker-image $(VAULT) --name $(KIND_CLUSTER)
 	kind load docker-image $(POSTGRES) --name $(KIND_CLUSTER)
 	kind load docker-image $(GRAFANA) --name $(KIND_CLUSTER)
 	kind load docker-image $(PROMETHEUS) --name $(KIND_CLUSTER)
@@ -207,7 +203,6 @@ dev-load:
 	kind load docker-image $(METRICS_IMAGE) --name $(KIND_CLUSTER)
 
 dev-apply:
-	kustomize build zarf/k8s/dev/vault | kubectl apply -f -
 
 	kustomize build zarf/k8s/dev/database | kubectl apply -f -
 	kubectl rollout status --namespace=$(NAMESPACE) --watch --timeout=120s sts/database
@@ -243,8 +238,6 @@ dev-logs:
 	kubectl logs --namespace=$(NAMESPACE) -l app=$(APP) --all-containers=true -f --tail=100 --max-log-requests=6 | go run app/tooling/logfmt/main.go -service=$(SERVICE_NAME)
 
 dev-logs-init:
-	kubectl logs --namespace=$(NAMESPACE) -l app=$(APP) -f --tail=100 -c init-vault-system
-	kubectl logs --namespace=$(NAMESPACE) -l app=$(APP) -f --tail=100 -c init-vault-loadkeys
 	kubectl logs --namespace=$(NAMESPACE) -l app=$(APP) -f --tail=100 -c init-migrate
 	kubectl logs --namespace=$(NAMESPACE) -l app=$(APP) -f --tail=100 -c init-seed
 
@@ -264,10 +257,6 @@ dev-describe-sales:
 	kubectl describe pod --namespace=$(NAMESPACE) -l app=$(APP)
 
 # ------------------------------------------------------------------------------
-
-dev-logs-vault:
-	kubectl logs --namespace=$(NAMESPACE) -l app=vault --all-containers=true -f --tail=100
-
 dev-logs-db:
 	kubectl logs --namespace=$(NAMESPACE) -l app=database --all-containers=true -f --tail=100
 
@@ -317,9 +306,6 @@ migrate:
 
 seed: migrate
 	go run app/tooling/sales-admin/main.go seed
-
-vault:
-	go run app/tooling/sales-admin/main.go vault
 
 pgcli:
 	pgcli postgresql://postgres:postgres@localhost
@@ -456,16 +442,16 @@ write-token-to-env:
 	make token | grep -o '"ey.*"' | awk '{print "VITE_SERVICE_TOKEN="$$1}' >> ${ADMIN_FRONTEND_PREFIX}/.env
 
 admin-gui-install:
-	pnpm -C ${ADMIN_FRONTEND_PREFIX} install 
+	pnpm -C ${ADMIN_FRONTEND_PREFIX} install
 
 admin-gui-dev: admin-gui-install
-	pnpm -C ${ADMIN_FRONTEND_PREFIX} run dev 
+	pnpm -C ${ADMIN_FRONTEND_PREFIX} run dev
 
 admin-gui-build: admin-gui-install
-	pnpm -C ${ADMIN_FRONTEND_PREFIX} run build 
+	pnpm -C ${ADMIN_FRONTEND_PREFIX} run build
 
 admin-gui-start-build: admin-gui-build
-	pnpm -C ${ADMIN_FRONTEND_PREFIX} run preview 
+	pnpm -C ${ADMIN_FRONTEND_PREFIX} run preview
 
 admin-gui-run: write-token-to-env admin-gui-start-build
 
