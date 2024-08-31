@@ -1,4 +1,5 @@
 // Package db provides support for access the database.
+// 虽然这里添加了span,但是pgx这个库本身并没有配置对应的 opentelemetry 设施 TODO
 package db
 
 import (
@@ -53,7 +54,7 @@ func Open(cfg Config) (*sqlx.DB, error) {
 	q.Set("sslmode", sslMode)
 	q.Set("timezone", "utc")
 	if cfg.Schema != "" {
-		q.Set("search_path", cfg.Schema)
+		q.Set("search_path", cfg.Schema) // 详见postgre url org roam
 	}
 
 	u := url.URL{
