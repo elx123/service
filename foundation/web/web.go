@@ -102,6 +102,7 @@ func (a *App) HandleNoMiddleware(method string, group string, path string, handl
 // Handle sets a handler function for a given HTTP method and path pair
 // to the application server mux.
 func (a *App) Handle(method string, group string, path string, handler Handler, mw ...Middleware) {
+	// 这里也有一个条件,就是作者认为应用层Middleware 要比 框架层Middleware 更靠近handler
 	handler = wrapMiddleware(mw, handler)
 	handler = wrapMiddleware(a.mw, handler)
 
