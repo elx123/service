@@ -18,6 +18,7 @@ func Panics() web.Middleware {
 
 			// Defer a function to recover from a panic and set the err return
 			// variable after the fact.
+			// 所以这里设置panic 为了 capture handler可能发生的panic ,具体的上下文我们可以在org roam 节点所以为了防止我们在处理http handler过程中发生panic,我们应该明确recover中查看
 			defer func() {
 				if rec := recover(); rec != nil {
 					trace := debug.Stack()
